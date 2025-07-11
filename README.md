@@ -1,5 +1,5 @@
 # ganflu
-Genome ANnotation for inFLUenza viruses
+Genome ANnotator for inFLUenza viruses
 
 ## Usage
 ```bash
