@@ -1,0 +1,41 @@
+[metadata]
+target = "IBV"
+description = "Influenza B virus genomes (3 isolates; 8 segments)"
+version = 20240312
+date = 2024-03-12
+classification = "serotype"
+trans_table = 1
+spliced = true
+prot_faa = "prot/IBV_proteome_consensus.faa"
+[segments]
+"PB1" = {id = 1, file = "PB1.fa", description = "{organism} segment 1 polymerase PB1 (PB1) gene, complete cds"}
+"PB2" = {id = 2, file = "PB2.fa", description = "{organism} segment 2 polymerase PB2 (PB2) gene, complete cds"}
+"PA" = {id = 3, file = "PA.fa", description = "{organism} polymerase PA (PA) gene, complete cds"}
+"HA" = {id = 4, file = "HA.fa", description = "{organism} segment 4 hemagglutinin (HA) gene, complete cds"}
+"NP" = {id = 5, file = "NP.fa", description = "{organism} segment 5 nucleoprotein (NP) gene, complete cds"}
+"NA" = {id = 6, file = "NA.fa", description = "{organism} segment 6 neuraminidase (NA) gene, complete cds"}
+"M" = {id = 7, file = "M.fa", description = "{organism} segment 7 matrix protein 2 (M2) and matrix protein 1 (M1) genes, complete cds"}
+"NS" = {id = 8, file = "NS.fa", description = "{organism} segment 8 nuclear export protein (NEP) and nonstructural protein 1 (NS1) genes, complete cds"}
+
+[serotype]
+HA = {segment = "HA", prefix = ""}
+
+[genes]
+PB1 = {product = "polymerase PB1", note = "polymerase basic protein 1", has_intron = false, ribosomal_slippage = false}
+PB2 = {product = "polymerase PB2", note = "polymerase basic protein 2", has_intron = false, ribosomal_slippage = false}
+PA = {product = "polymerase PA", note = "polymerase acidic protein", has_intron = false, ribosomal_slippage = false}
+HA = {product = "hemagglutinin", has_intron = false, ribosomal_slippage = false}
+NP = {product = "nucleoprotein", has_intron = false, ribosomal_slippage = false}
+NA = {product = "neuraminidase", has_intron = false, ribosomal_slippage = false}
+NB = {product = "NB protein", has_intron = false, ribosomal_slippage = false}
+M1 = {product = "matrix protein 1", has_intron = false, ribosomal_slippage = false}
+BM2 = {product = "matrix protein 2", has_intron = false, ribosomal_slippage = false}
+NS1 = {product = "nonstructural protein 1", has_intron = false, ribosomal_slippage = false}
+NS2 = {product = "nonstructural protein 2", note = "nuclear export protein", has_intron = true, ribosomal_slippage = false, gene_synonym = "NEP"}
+
+[annotations]
+"molecule_type" = "cRNA"
+"organism" = "Influenza B virus ({isolate}({subtype}))"
+"taxonomy" = ['Viruses', 'Riboviria', 'Orthornavirae', 'Negarnaviricota', 'Polyploviricotina', 'Insthoviricetes', 'Articulavirales', 'Orthomyxoviridae', 'Betainfluenzavirus', 'Betainfluenzavirus influenzae']
+"data_file_division" = "VRL"
+"topology" = "linear"

@@ -1,0 +1,45 @@
+package:
+  name: ganflu
+  version: 0.1.0
+
+source:
+  path: ../
+
+build:
+  number: 0
+  noarch: python
+requirements:
+  host:
+    - python >=3.10.0
+    - pip
+    - setuptools
+    - toml >=0.10.2
+  run:
+    - python >=3.10.0
+    - toml >=0.10.2
+    - biopython
+    - samtools
+    - miniprot
+
+
+channels:
+  - conda-forge
+  - bioconda
+
+test:
+  imports:
+    - ganflu
+  commands:
+    - ganflu --help
+
+about:
+  home: "https://github.com/satoshikawato/ganflu/"
+  license: "MIT"
+  license_family: "MIT"
+  license_file: "LICENSE.txt"
+  summary: "Influenza virusgenome annotation tool"
+  description: "For details, see https://github.com/satoshikawato/ganflu/"
+
+extra:
+  recipe-maintainers:
+    - satoshikawato
