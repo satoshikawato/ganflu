@@ -1,2 +1,2 @@
-tests/test_inputs/IAV/*.fa
-tests/test_inputs/IBV/*.fa
+tests/test_inputs/IAV/*
+tests/test_inputs/IBV/*

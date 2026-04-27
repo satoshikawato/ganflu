@@ -36,7 +36,7 @@ about:
   home: "https://github.com/satoshikawato/ganflu/"
   license: "MIT"
   license_family: "MIT"
-  license_file: "LICENSE.txt"
+  license_file: "LICENSE"
   summary: "Influenza virusgenome annotation tool"
   description: "For details, see https://github.com/satoshikawato/ganflu/"
 

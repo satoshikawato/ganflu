@@ -26,6 +26,7 @@ def parse_arguments(raw_args=None):
     parser.add_argument("-t", "--toml", required=True, help="Input TOML file")
     parser.add_argument("-o", "--output", required=True, help="Output GenBank file")
     parser.add_argument("-s", "--isolate", required=True, help="Isolate name")
+    parser.add_argument("--preserve_original_id", "--preserve-original-id", dest="preserve_original_id", action="store_true", help="Preserve original FASTA record IDs in GenBank output")
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -149,6 +150,65 @@ def create_new_feature(product_name, gff3_feature, slip=False):
     location = FeatureLocation(gff3_feature.start - 1, gff3_feature.end, strand=1 if gff3_feature.strand == '+' else -1)
     return SeqFeature(location=location, type=gff3_feature.type, qualifiers=attr_dict)
 
+def format_organism(template, isolate, subtype):
+    if subtype:
+        return template.format(isolate=isolate, subtype=subtype)
+    return template.replace("({subtype})", "").format(isolate=isolate, subtype=subtype)
+
+def product_to_segment(product_name, segment_keys):
+    segment_aliases = {
+        "PB1-F2": "PB1",
+        "PA-X": "PA",
+        "NB": "NA",
+        "M1": "M",
+        "M2": "M",
+        "BM2": "M",
+        "NS1": "NS",
+        "NS2": "NS",
+    }
+    if product_name in segment_keys:
+        return product_name
+    if segment_aliases.get(product_name) in segment_keys:
+        return segment_aliases[product_name]
+    for segment_key in sorted(segment_keys, key=len, reverse=True):
+        suffix = product_name.removeprefix(segment_key)
+        if suffix != product_name and (suffix.startswith(("-", "_")) or suffix.isdigit()):
+            return segment_key
+    return None
+
+def get_segment_key(contig_id, features_in_contig, segment_keys):
+    segment_keys = list(segment_keys)
+    candidates = []
+    products = []
+    for feature in features_in_contig:
+        product = feature.qualifiers.get("product")
+        if not product:
+            continue
+        product_values = product if isinstance(product, list) else [product]
+        for product_name in product_values:
+            products.append(product_name)
+            segment_key = product_to_segment(product_name, segment_keys)
+            if segment_key and segment_key not in candidates:
+                candidates.append(segment_key)
+
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        raise KeyError(f"Ambiguous segment predictions for FASTA record ID '{contig_id}': {', '.join(candidates)}")
+    expected_segments = ", ".join(segment_keys)
+    predicted_products = ", ".join(products) if products else "none"
+    raise KeyError(f"Could not infer segment from predicted CDS products for FASTA record ID '{contig_id}'. Products: {predicted_products}. Expected one of: {expected_segments}")
+
+def get_output_id_prefix(output_path):
+    prefix = os.path.splitext(os.path.basename(output_path))[0]
+    return "".join(char if char.isalnum() or char in "_-" else "_" for char in prefix)
+
+def format_record_id(prefix, segment_key, segment_counts, segment_seen):
+    if segment_counts[segment_key] == 1:
+        return f"{prefix}_{segment_key}"
+    segment_seen[segment_key] += 1
+    return f"{prefix}_{segment_key}_{segment_seen[segment_key]}"
+
 def process_cds_feature(gff3_feature, features_in_seq, antigen_dict, antigen_list, slip_list):
     attrs = dict(attr.split("=") for attr in gff3_feature.attributes.split(";"))
     
@@ -181,6 +241,15 @@ def process_cds_feature(gff3_feature, features_in_seq, antigen_dict, antigen_lis
                 else:
                     features_in_seq[product_name].qualifiers["note"] = []
                 features_in_seq[product_name].qualifiers["note"].append(f"subtype: {subtype}")
+        else:
+            if product_name in features_in_seq:
+                features_in_seq[product_name] = update_existing_feature(product_name, gff3_feature, features_in_seq[product_name])
+            else:
+                features_in_seq[product_name] = create_new_feature(product_name, gff3_feature)
+                if features_in_seq[product_name].qualifiers.get("note"):
+                    pass
+                else:
+                    features_in_seq[product_name].qualifiers["note"] = []
     elif any(slip_gene in product_name for slip_gene in slip_list):
 
         if product_name in features_in_seq:
@@ -226,6 +295,9 @@ def add_translations(seq_record):
                 elif "is not a start codon" in str(e):
                     feature.qualifiers["translation"] = feature.translate(seq_record.seq, cds=False)[:-1]
                     feature.qualifiers["note"].append("start codon not found; possibly truncated")
+                elif "Final codon" in str(e) and "is not a stop codon" in str(e):
+                    feature.qualifiers["translation"] = feature.translate(seq_record.seq, cds=False)
+                    feature.qualifiers["note"].append("stop codon not found; possibly truncated")
     return seq_record
 
 
@@ -247,6 +319,7 @@ def main(raw_args=None):
     for key in seq_features.keys():
         for feature in seq_features[key]:
             if feature.qualifiers["product"] in antigen_list:
+                subtype = ""
                 if "note" in feature.qualifiers:
                     # if the list of notes contains an element with the word "subtype", then get the subtype information
                     if any("subtype" in s for s in feature.qualifiers["note"]):
@@ -254,12 +327,14 @@ def main(raw_args=None):
                         # Get the element of the list that contains the subtype information
                         index_for_subtype = [i for i, s in enumerate(feature.qualifiers["note"]) if "subtype" in s][0]
                         subtype = feature.qualifiers["note"][index_for_subtype].split(": ")[1]
-                    antigen_dict[feature.qualifiers["product"]].append(subtype)
-                else:
-                    antigen_dict[feature.qualifiers["product"]].append("Unknown")
+                antigen_dict[feature.qualifiers["product"]].append(subtype)
     for key, value in antigen_dict.items():
-        if len(value) == 1:
-            antigen_dict[key] = value[0]
+        subtypes = [subtype for subtype in value if subtype]
+        unique_subtypes = list(dict.fromkeys(subtypes))
+        if len(unique_subtypes) == 0:
+            antigen_dict[key] = ""
+        elif len(unique_subtypes) == 1:
+            antigen_dict[key] = unique_subtypes[0]
         else:
             antigen_dict[key] = f"{key[0]}X"
     serotype = "".join([value for _, value in antigen_dict.items() if value])
@@ -270,18 +345,30 @@ def main(raw_args=None):
     annotations["taxonomy"] = config["annotations"]["taxonomy"]
     annotations["data_file_division"] = config["annotations"]["data_file_division"]
     annotations["serotype"] = serotype
-    annotations["source"] = config["annotations"]["organism"].format(isolate=isolate, subtype=serotype)
-    annotations["organism"] = config["annotations"]["organism"].format(isolate=isolate, subtype=serotype)
+    annotations["source"] = format_organism(config["annotations"]["organism"], isolate, serotype)
+    annotations["organism"] = annotations["source"]
     annotations["date"] = datetime.now().strftime("%d-%b-%Y").upper()
     try:
         out_records = []
+        record_segments = []
         for record in seq_records:
             contig_id = record.id
+            features_in_contig = seq_features.get(contig_id, [])
+            segment_key = get_segment_key(contig_id, features_in_contig, config["segments"].keys())
+            record_segments.append((record, features_in_contig, segment_key))
+
+        segment_counts = defaultdict(int)
+        for _, _, segment_key in record_segments:
+            segment_counts[segment_key] += 1
+        segment_seen = defaultdict(int)
+        id_prefix = get_output_id_prefix(args.output)
+        for record, features_in_contig, segment_key in record_segments:
+            contig_id = record.id
             contig_seq = record.seq
-            features_in_contig = seq_features[contig_id]
+            record_id = contig_id if args.preserve_original_id else format_record_id(id_prefix, segment_key, segment_counts, segment_seen)
             
-            description = config["segments"][contig_id.split("_")[0]]["description"].format(organism=annotations["organism"], subtype=serotype)
-            out_record = SeqRecord(contig_seq, id=contig_id, description = description, name=contig_id, annotations=annotations, features=features_in_contig)
+            description = config["segments"][segment_key]["description"].format(organism=annotations["organism"], subtype=serotype)
+            out_record = SeqRecord(contig_seq, id=record_id, description = description, name=record_id, annotations=annotations, features=features_in_contig)
             out_record = add_translations(out_record)
             out_records.append(out_record)
 

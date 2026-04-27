@@ -8,7 +8,7 @@ import platform
 import toml
 from collections import defaultdict
 from importlib import resources
-from importlib.abc import Traversable
+from importlib.resources.abc import Traversable
 
 def load_toml(logger, file_name=None, absolute_file_path=None) -> dict:
     toml_dict = {}  # Initialize to empty dict to handle cases where loading fails.

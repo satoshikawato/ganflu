@@ -37,6 +37,7 @@ def _get_args() -> argparse.Namespace:
     parser.add_argument("-t", "--target", dest="target", required=True, help="Target (IAV or IBV)", choices=["IAV", "IBV"])
     parser.add_argument("-d", "--db_dir", dest="db_dir", help="Data path (optional; default: ganflu/db)", default=None)
     parser.add_argument("--isolate", dest="isolate", default=None, help='isolate name (e.g. "A/Narita/1/2009", "A/goose/Guangdong/1/1996", "B/Lee/1940")')
+    parser.add_argument("--preserve_original_id", "--preserve-original-id", dest="preserve_original_id", action="store_true", help="Preserve original FASTA record IDs in GenBank output")
     parser.add_argument("-v", "--version", action="version", version=_version())
     
     if len(sys.argv) == 1:
@@ -77,7 +78,10 @@ def main():
         input=input_fasta, work_dir=work_dir, output=f"{out_stem}.gff3",
         prot_faa=ref_faa, miniprot_bin="miniprot", stderr_filename="miniprot.stderr", kmer_size=15
         ).run_piped_commands()
-    gff3togbk.main(["-g", f"{out_stem}.gff3", "-o", f"{out_stem}.gbk", "-i", input_fasta, "--toml", os.path.join(ref_dir, f'{target}.toml'), "--isolate", args.isolate]) 
+    gff3togbk_args = ["-g", f"{out_stem}.gff3", "-o", f"{out_stem}.gbk", "-i", input_fasta, "--toml", os.path.join(ref_dir, f'{target}.toml'), "--isolate", args.isolate]
+    if args.preserve_original_id:
+        gff3togbk_args.append("--preserve_original_id")
+    gff3togbk.main(gff3togbk_args) 
 
 
 

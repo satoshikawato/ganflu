@@ -6,7 +6,7 @@ import sys
 import toml
 import logging
 from importlib import resources
-from importlib.abc import Traversable
+from importlib.resources.abc import Traversable
 
 logger = logging.getLogger("ganflu")
 
