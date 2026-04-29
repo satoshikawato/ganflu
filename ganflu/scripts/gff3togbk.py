@@ -377,8 +377,10 @@ def main(raw_args=None):
 
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
+        raise
     except Exception as e:
         logger.error(f"An error occurred: {e}")
+        raise
 
 if __name__ == "__main__":
     main()
