@@ -107,6 +107,8 @@ def main():
 
     gff3_file = f"{out_stem}.gff3"
     gbk_file = f"{out_stem}.gbk"
+    cds_fna_file = f"{out_stem}.cds.fna"
+    faa_file = f"{out_stem}.faa"
     try:
         logger.info("Running miniprot")
         miniprot = MiniprotCommandLine(
@@ -117,7 +119,15 @@ def main():
         logger.info(f"miniprot GFF3 output: {gff3_file}")
 
         logger.info("Converting GFF3 to GenBank")
-        gff3togbk_args = ["-g", gff3_file, "-o", gbk_file, "-i", input_fasta, "--toml", os.path.join(ref_dir, f'{target}.toml'), "--isolate", args.isolate]
+        gff3togbk_args = [
+            "-g", gff3_file,
+            "-o", gbk_file,
+            "-i", input_fasta,
+            "--toml", os.path.join(ref_dir, f'{target}.toml'),
+            "--isolate", args.isolate,
+            "--cds-fna", cds_fna_file,
+            "--faa", faa_file,
+        ]
         if args.preserve_original_id:
             gff3togbk_args.append("--preserve_original_id")
         gff3togbk.main(gff3togbk_args)

@@ -21,3 +21,10 @@ options:
                         Preserve original FASTA record IDs in GenBank output
   -v, --version         show program's version number and exit
 ```
+
+Outputs are written using the output stem:
+
+- `<output>.gbk`: GenBank annotation
+- `<output>.gff3`: miniprot GFF3
+- `<output>.cds.fna`: CDS nucleotide FASTA
+- `<output>.faa`: amino acid FASTA

@@ -27,6 +27,8 @@ def parse_arguments(raw_args=None):
     parser.add_argument("-o", "--output", required=True, help="Output GenBank file")
     parser.add_argument("-s", "--isolate", required=True, help="Isolate name")
     parser.add_argument("--preserve_original_id", "--preserve-original-id", dest="preserve_original_id", action="store_true", help="Preserve original FASTA record IDs in GenBank output")
+    parser.add_argument("--cds-fna", dest="cds_fna", default=None, help="Output CDS nucleotide FASTA file (default: <output stem>.cds.fna)")
+    parser.add_argument("--faa", dest="faa", default=None, help="Output amino acid FASTA file (default: <output stem>.faa)")
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -203,6 +205,10 @@ def get_output_id_prefix(output_path):
     prefix = os.path.splitext(os.path.basename(output_path))[0]
     return "".join(char if char.isalnum() or char in "_-" else "_" for char in prefix)
 
+def get_fasta_output_paths(output_path, cds_fna=None, faa=None):
+    stem, _ = os.path.splitext(output_path)
+    return cds_fna or f"{stem}.cds.fna", faa or f"{stem}.faa"
+
 def format_record_id(prefix, segment_key, segment_counts, segment_seen):
     if segment_counts[segment_key] == 1:
         return f"{prefix}_{segment_key}"
@@ -300,6 +306,70 @@ def add_translations(seq_record):
                     feature.qualifiers["note"].append("stop codon not found; possibly truncated")
     return seq_record
 
+def get_first_qualifier(feature, key, default=""):
+    value = feature.qualifiers.get(key, default)
+    if isinstance(value, list):
+        return value[0] if value else default
+    return value
+
+def sanitize_fasta_id(value):
+    value = str(value) if value else "unknown"
+    return "".join(char if char.isalnum() or char in "._-" else "_" for char in value)
+
+def format_cds_record_id(seq_record_id, feature, seen_ids):
+    product = get_first_qualifier(feature, "product", "CDS")
+    seq_record_id = sanitize_fasta_id(seq_record_id)
+    product_id = sanitize_fasta_id(product)
+    if seq_record_id == product_id or seq_record_id.endswith(f"_{product_id}"):
+        base_id = seq_record_id
+    else:
+        base_id = f"{seq_record_id}_{product_id}"
+    seen_ids[base_id] += 1
+    if seen_ids[base_id] == 1:
+        return base_id
+    return f"{base_id}_{seen_ids[base_id]}"
+
+def get_feature_translation(feature, seq_record):
+    translation = get_first_qualifier(feature, "translation")
+    if translation:
+        return Seq(str(translation))
+    try:
+        translation = feature.translate(seq_record.seq, cds=False)
+    except CodonTable.TranslationError:
+        return None
+    if str(translation).endswith("*"):
+        translation = translation[:-1]
+    return Seq(str(translation))
+
+def build_cds_fasta_records(seq_records):
+    cds_records = []
+    aa_records = []
+    seen_ids = defaultdict(int)
+    for seq_record in seq_records:
+        for feature in seq_record.features:
+            if feature.type != "CDS":
+                continue
+            cds_record_id = format_cds_record_id(seq_record.id, feature, seen_ids)
+            product = get_first_qualifier(feature, "product", "CDS")
+            location = str(feature.location)
+            description = f"{product} {seq_record.id}:{location}"
+
+            cds_seq = feature.extract(seq_record.seq)
+            cds_records.append(SeqRecord(cds_seq, id=cds_record_id, name=cds_record_id, description=description))
+
+            translation = get_feature_translation(feature, seq_record)
+            if translation:
+                aa_records.append(SeqRecord(translation, id=cds_record_id, name=cds_record_id, description=description))
+    return cds_records, aa_records
+
+def write_cds_fasta_files(seq_records, cds_fna_path, faa_path):
+    cds_records, aa_records = build_cds_fasta_records(seq_records)
+    with open(cds_fna_path, "w") as handle:
+        SeqIO.write(cds_records, handle, "fasta")
+    with open(faa_path, "w") as handle:
+        SeqIO.write(aa_records, handle, "fasta")
+    return len(cds_records), len(aa_records)
+
 
 
 def main(raw_args=None):
@@ -374,6 +444,10 @@ def main(raw_args=None):
 
         with open(args.output, 'w') as handle:  
             SeqIO.write(out_records, handle, 'genbank')
+        cds_fna_path, faa_path = get_fasta_output_paths(args.output, args.cds_fna, args.faa)
+        cds_count, aa_count = write_cds_fasta_files(out_records, cds_fna_path, faa_path)
+        logger.info(f"CDS nucleotide FASTA output: {cds_fna_path} ({cds_count} records)")
+        logger.info(f"Amino acid FASTA output: {faa_path} ({aa_count} records)")
 
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
