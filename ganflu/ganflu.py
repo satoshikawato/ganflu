@@ -7,6 +7,7 @@ import logging
 import argparse
 import time
 from importlib import resources
+from . import __version__
 from .launchers.miniprot import MiniprotCommandLine
 from .scripts import gff3togbk, validate_reference_files
 
@@ -14,7 +15,7 @@ def _version():
     """
     Returns the version of the pipeline
     """
-    return "0.1.0"
+    return __version__
 
 def is_positive_integer(parameter_name, value):
     try:
@@ -53,7 +54,7 @@ def _get_args() -> argparse.Namespace:
     parser.add_argument("-o", "--output", dest="output", default=None, type=str, help="basename for Output GenBank file name (default: <input>)")
     parser.add_argument("-t", "--target", dest="target", required=True, help="Target (IAV or IBV)", choices=["IAV", "IBV"])
     parser.add_argument("-d", "--db_dir", dest="db_dir", help="Data path (optional; default: ganflu/db)", default=None)
-    parser.add_argument("--isolate", dest="isolate", default=None, help='isolate name (e.g. "A/Narita/1/2009", "A/goose/Guangdong/1/1996", "B/Lee/1940")')
+    parser.add_argument("--isolate", dest="isolate", required=True, help='isolate name (e.g. "A/Narita/1/2009", "A/goose/Guangdong/1/1996", "B/Lee/1940")')
     parser.add_argument("--preserve_original_id", "--preserve-original-id", dest="preserve_original_id", action="store_true", help="Preserve original FASTA record IDs in GenBank output")
     parser.add_argument("--log-file", dest="log_file", default=None, help="Log file path (default: <output>.log)")
     parser.add_argument("--verbose", action="store_true", help="Show debug logs in the terminal")

@@ -1,44 +1,67 @@
+{% set name = "ganflu" %}
+{% set version = "0.1.0" %}
+{% set python_min = "3.10" %}
+
 package:
-  name: ganflu
-  version: 0.1.0
+  name: {{ name|lower }}
+  version: {{ version }}
 
 source:
-  path: ../
+  url: https://github.com/satoshikawato/{{ name }}/archive/refs/tags/v{{ version }}.tar.gz
+  # Fill this after pushing tag v{{ version }}:
+  # curl -L https://github.com/satoshikawato/{{ name }}/archive/refs/tags/v{{ version }}.tar.gz | sha256sum
+  sha256: PUT_SHA256_HERE
 
 build:
   number: 0
   noarch: python
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  entry_points:
+    - ganflu = ganflu.ganflu:main
+
 requirements:
   host:
-    - python >=3.10.0
+    - python {{ python_min }}
     - pip
     - setuptools
-    - toml >=0.10.2
   run:
-    - python >=3.10.0
-    - toml >=0.10.2
+    - python >={{ python_min }}
     - biopython
-    - samtools
     - miniprot
-
-
-channels:
-  - conda-forge
-  - bioconda
+    - samtools
+    - toml >=0.10.2
 
 test:
   imports:
     - ganflu
+  source_files:
+    - tests/data/B_Victoria_2_87.fa
+    - tests/data/PR8.fasta
   commands:
     - ganflu --help
+    - ganflu --version
+    - ganflu -i tests/data/PR8.fasta -o smoke/PR8 -t IAV --isolate A/Puerto_Rico/8/1934
+    - test -s smoke/PR8.gbk
+    - test -s smoke/PR8.gff3
+    - test -s smoke/PR8.cds.fna
+    - test -s smoke/PR8.faa
+    - grep -q "A/Puerto_Rico/8/1934" smoke/PR8.gbk
+    - ganflu -i tests/data/B_Victoria_2_87.fa -o smoke/B_Victoria_2_87 -t IBV --isolate B/Victoria/2/1987
+    - test -s smoke/B_Victoria_2_87.gbk
+    - test -s smoke/B_Victoria_2_87.gff3
+    - test -s smoke/B_Victoria_2_87.cds.fna
+    - test -s smoke/B_Victoria_2_87.faa
+    - grep -q "B/Victoria/2/1987" smoke/B_Victoria_2_87.gbk
+  requires:
+    - python {{ python_min }}
 
 about:
-  home: "https://github.com/satoshikawato/ganflu/"
-  license: "MIT"
-  license_family: "MIT"
-  license_file: "LICENSE"
-  summary: "Influenza virusgenome annotation tool"
-  description: "For details, see https://github.com/satoshikawato/ganflu/"
+  home: https://github.com/satoshikawato/ganflu/
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: Influenza virus genome annotation tool
+  description: Genome ANnotation for inFLUenza viruses.
 
 extra:
   recipe-maintainers:

@@ -5,7 +5,9 @@ Genome ANnotator for inFLUenza viruses
 ## Usage
 ```bash
 ganflu
-usage: ganflu [-h] -i INPUT [-o OUTPUT] -t {IAV,IBV} [-d DB_DIR] [--isolate ISOLATE] [--preserve_original_id] [-v]
+usage: ganflu [-h] -i INPUT [-o OUTPUT] -t {IAV,IBV} [-d DB_DIR] --isolate
+              ISOLATE [--preserve_original_id] [--log-file LOG_FILE]
+              [--verbose] [-v]
 
 ganflu v0.1.0: Influenza virus genome annotation
 
@@ -19,6 +21,8 @@ options:
   --isolate ISOLATE     isolate name (e.g. "A/Narita/1/2009", "A/goose/Guangdong/1/1996", "B/Lee/1940")
   --preserve_original_id, --preserve-original-id
                         Preserve original FASTA record IDs in GenBank output
+  --log-file LOG_FILE   Log file path (default: <output>.log)
+  --verbose             Show debug logs in the terminal
   -v, --version         show program's version number and exit
 ```
 

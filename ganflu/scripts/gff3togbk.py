@@ -294,7 +294,7 @@ def add_translations(seq_record):
                 feature.qualifiers["translation"] = feature.translate(seq_record.seq)
             except CodonTable.TranslationError as e:
                 if "Extra in frame stop codon" in str(e):
-                    feature.type == "misc_feature"
+                    feature.type = "misc_feature"
                     
                     feature.qualifiers["note"].append("nonfunctional due to mutation")
                         
