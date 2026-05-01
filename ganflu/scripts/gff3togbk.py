@@ -5,7 +5,11 @@ import sys
 import os
 import logging
 import argparse
-import toml
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
+    tomllib = None
+    import toml
 from collections import defaultdict
 from datetime import datetime
 from Bio import SeqIO
@@ -29,10 +33,18 @@ def parse_arguments(raw_args=None):
     parser.add_argument("--preserve_original_id", "--preserve-original-id", dest="preserve_original_id", action="store_true", help="Preserve original FASTA record IDs in GenBank output")
     parser.add_argument("--cds-fna", dest="cds_fna", default=None, help="Output CDS nucleotide FASTA file (default: <output stem>.cds.fna)")
     parser.add_argument("--faa", dest="faa", default=None, help="Output amino acid FASTA file (default: <output stem>.faa)")
-    if len(sys.argv) == 1:
+    if raw_args is None and len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
     return parser.parse_args(raw_args)
+
+
+def load_toml_file(path):
+    if tomllib is not None:
+        with open(path, "rb") as handle:
+            return tomllib.load(handle)
+    with open(path, "r", encoding="utf-8") as handle:
+        return toml.load(handle)
 
 class GFF3Feature:
     def __init__(self, seqid, source, type_, start, end, score, strand, phase, attributes):
@@ -394,7 +406,7 @@ def main(raw_args=None):
     
     antigen_dict = defaultdict(dict)
     gff_features = get_gff_features(args.gff)
-    config = toml.load(args.toml)
+    config = load_toml_file(args.toml)
     
     seq_records = [record for record in SeqIO.parse(args.input, "fasta")]
     antigen_list = list(config.get("serotype", {}).keys())

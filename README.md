@@ -32,3 +32,24 @@ Outputs are written using the output stem:
 - `<output>.gff3`: miniprot GFF3
 - `<output>.cds.fna`: CDS nucleotide FASTA
 - `<output>.faa`: amino acid FASTA
+
+## Web app
+
+The static browser app is in `ganflu/web/` and runs Miniprot WebAssembly plus
+Pyodide without a backend server.
+
+```bash
+python tools/prepare_browser_wheel.py
+cd ganflu/web
+python -m http.server 8765 --bind 127.0.0.1
+```
+
+Then open <http://127.0.0.1:8765/>.
+
+For a distributable package that includes the web app assets, build in this
+order:
+
+```bash
+python tools/prepare_browser_wheel.py
+python -m build
+```

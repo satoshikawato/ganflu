@@ -3,11 +3,23 @@
 
 import os
 import sys
-import toml
 import logging
 from importlib import resources
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
+    tomllib = None
+    import toml
 
 logger = logging.getLogger("ganflu")
+
+
+def load_toml_file(path):
+    if tomllib is not None:
+        with open(path, "rb") as file:
+            return tomllib.load(file)
+    with open(path, "r", encoding="utf-8") as file:
+        return toml.load(file)
 
 def find_reference_toml(db_dir, logger, extension="toml"):
     # Get a list of all files in the directory
@@ -20,8 +32,7 @@ def find_reference_toml(db_dir, logger, extension="toml"):
         # If there's only one file with the specified extension
         ref_toml = os.path.join(db_dir, toml_files[0])
         logger.info(f"Reference TOML file found: {ref_toml}")
-        with open(ref_toml, 'r') as file:
-            ref_toml = toml.load(file)
+        ref_toml = load_toml_file(ref_toml)
         return ref_toml
     else:
         # If there are no files or more than one file with the specified extension
@@ -34,8 +45,7 @@ def find_reference_toml(db_dir, logger, extension="toml"):
 def create_faidx_if_needed(config_dict, db_dir, target, logger):
     # Load the reference TOML configuration
     ref_file = config_dict["ref_toml"]
-    with open(ref_file, 'r') as file:
-        ref_config = toml.load(file)
+    ref_config = load_toml_file(ref_file)
     db_nucl_dir = os.path.join(db_dir, "nucl")
     # Iterate over each virus in the reference configuration
     #for virus, virus_config in ref_config.items():
@@ -79,8 +89,7 @@ def create_faidx_if_needed(config_dict, db_dir, target, logger):
 def create_fasta_list_if_needed(config_dict, db_dir, target, logger):
     # Load the reference TOML configuration
     ref_file = config_dict["ref_toml"]
-    with open(ref_file, 'r') as file:
-        ref_config = toml.load(file)
+    ref_config = load_toml_file(ref_file)
     db_nucl_dir = os.path.join(db_dir, "nucl")
     # Iterate over each virus in the reference configuration
     #for virus, virus_config in ref_config.items():

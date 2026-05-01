@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 
@@ -5,6 +6,29 @@ from setuptools import find_packages, setup
 
 
 ROOT = Path(__file__).parent
+BROWSER_WHEEL_BUILD_ENV = "GANFLU_BUILDING_BROWSER_WHEEL"
+
+BASE_PACKAGE_DATA = [
+    "db/*/*.toml",
+    "db/*/prot/*.faa",
+]
+
+WEB_PACKAGE_DATA = [
+    "web/*.html",
+    "web/*.whl",
+    "web/js/*.js",
+    "web/js/app/*.js",
+    "web/vendor/pyodide-wheels/*.whl",
+    "web/vendor/pyodide/v0.29.0/full/*.js",
+    "web/vendor/pyodide/v0.29.0/full/*.json",
+    "web/vendor/pyodide/v0.29.0/full/*.mjs",
+    "web/vendor/pyodide/v0.29.0/full/*.wasm",
+    "web/vendor/pyodide/v0.29.0/full/*.whl",
+    "web/vendor/pyodide/v0.29.0/full/*.zip",
+    "web/wasm/miniprot/*.js",
+    "web/wasm/miniprot/dist/*.mjs",
+    "web/wasm/miniprot/dist/*.wasm",
+]
 
 
 def get_version():
@@ -15,6 +39,12 @@ def get_version():
     return match.group(1)
 
 
+def get_package_data():
+    if os.environ.get(BROWSER_WHEEL_BUILD_ENV) == "1":
+        return BASE_PACKAGE_DATA
+    return [*BASE_PACKAGE_DATA, *WEB_PACKAGE_DATA]
+
+
 setup(
     name="ganflu",
     version=get_version(),
@@ -23,13 +53,8 @@ setup(
         "biopython",
         "toml",
     ],
-    include_package_data=True,
-    package_data={
-        "ganflu": [
-            "db/*/*.toml",
-            "db/*/prot/*.faa",
-        ],
-    },
+    include_package_data=False,
+    package_data={"ganflu": get_package_data()},
     python_requires=">=3.10",
     author="Satoshi Kawato",
     author_email="kawato@kaiyodai.ac.jp",
