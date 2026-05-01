@@ -130,7 +130,47 @@ def get_gff_features(file_path):
             feature = GFF3Feature(*columns)
             features.append(feature)
     return features
-            
+
+
+def parse_gff3_attributes(attributes):
+    if attributes == '.':
+        return {}
+    return dict(attr.split("=", 1) for attr in attributes.split(";") if attr)
+
+
+def qualifier_values(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def ensure_note_list(feature):
+    notes = feature.qualifiers.get("note")
+    if notes is None:
+        feature.qualifiers["note"] = []
+    elif not isinstance(notes, list):
+        feature.qualifiers["note"] = [notes]
+    return feature.qualifiers["note"]
+
+
+def build_cds_qualifiers(gene_name, gene_configs=None, slip=False):
+    gene_configs = gene_configs or {}
+    gene_config = gene_configs.get(gene_name, {})
+    qualifiers = {
+        "gene": gene_name,
+        "product": gene_config.get("product", gene_name),
+    }
+
+    note = gene_config.get("note")
+    if note:
+        qualifiers["note"] = qualifier_values(note)
+
+    if slip or gene_config.get("ribosomal_slippage"):
+        qualifiers["ribosomal_slippage"] = []
+
+    return qualifiers
 
 def update_existing_feature(product_name, gff3_feature, existing_feature, slip=False):
     added_location = FeatureLocation(gff3_feature.start - 1, gff3_feature.end, strand=1 if gff3_feature.strand == '+' else -1)
@@ -143,12 +183,8 @@ def update_existing_feature(product_name, gff3_feature, existing_feature, slip=F
         existing_feature.qualifiers["ribosomal_slippage"] = None
     return existing_feature
 
-def create_new_feature(product_name, gff3_feature, slip=False):
-    attrs = dict(attr.split("=") for attr in gff3_feature.attributes.split(";"))
-    attr_dict = {"product": product_name}
-
-    if slip:
-        attr_dict["ribosomal_slippage"] = []
+def create_new_feature(product_name, gff3_feature, gene_configs=None, slip=False):
+    attr_dict = build_cds_qualifiers(product_name, gene_configs, slip=slip)
     location = FeatureLocation(gff3_feature.start - 1, gff3_feature.end, strand=1 if gff3_feature.strand == '+' else -1)
     return SeqFeature(location=location, type=gff3_feature.type, qualifiers=attr_dict)
 
@@ -165,6 +201,8 @@ def product_to_segment(product_name, segment_keys):
         "M1": "M",
         "M2": "M",
         "BM2": "M",
+        "CM2": "M",
+        "P42": "M",
         "NS1": "NS",
         "NS2": "NS",
     }
@@ -181,15 +219,13 @@ def product_to_segment(product_name, segment_keys):
 def get_segment_key(contig_id, features_in_contig, segment_keys):
     segment_keys = list(segment_keys)
     candidates = []
-    products = []
+    predicted_names = []
     for feature in features_in_contig:
-        product = feature.qualifiers.get("product")
-        if not product:
-            continue
-        product_values = product if isinstance(product, list) else [product]
-        for product_name in product_values:
-            products.append(product_name)
-            segment_key = product_to_segment(product_name, segment_keys)
+        feature_names = qualifier_values(feature.qualifiers.get("gene"))
+        feature_names.extend(qualifier_values(feature.qualifiers.get("product")))
+        for feature_name in feature_names:
+            predicted_names.append(feature_name)
+            segment_key = product_to_segment(feature_name, segment_keys)
             if segment_key and segment_key not in candidates:
                 candidates.append(segment_key)
 
@@ -198,7 +234,7 @@ def get_segment_key(contig_id, features_in_contig, segment_keys):
     if len(candidates) > 1:
         raise KeyError(f"Ambiguous segment predictions for FASTA record ID '{contig_id}': {', '.join(candidates)}")
     expected_segments = ", ".join(segment_keys)
-    predicted_products = ", ".join(products) if products else "none"
+    predicted_products = ", ".join(predicted_names) if predicted_names else "none"
     raise KeyError(f"Could not infer segment from predicted CDS products for FASTA record ID '{contig_id}'. Products: {predicted_products}. Expected one of: {expected_segments}")
 
 def get_output_id_prefix(output_path):
@@ -215,8 +251,8 @@ def format_record_id(prefix, segment_key, segment_counts, segment_seen):
     segment_seen[segment_key] += 1
     return f"{prefix}_{segment_key}_{segment_seen[segment_key]}"
 
-def process_cds_feature(gff3_feature, features_in_seq, antigen_dict, antigen_list, slip_list):
-    attrs = dict(attr.split("=") for attr in gff3_feature.attributes.split(";"))
+def process_cds_feature(gff3_feature, features_in_seq, antigen_dict, antigen_list, slip_list, gene_configs=None):
+    attrs = parse_gff3_attributes(gff3_feature.attributes)
     
     product = attrs["Target"].split(" ")[0]
     product_name = product.split("_")[0]
@@ -234,61 +270,41 @@ def process_cds_feature(gff3_feature, features_in_seq, antigen_dict, antigen_lis
             antigen_dict[antigen][subtype] = {"subtype": subtype, "identity": identity, "location": location, "gff3_feature": gff3_feature}
             if product_name in features_in_seq:
                 final_subtype = max(antigen_dict[antigen], key=lambda x: antigen_dict[antigen][x]["identity"])
-                features_in_seq[product_name] = create_new_feature(product_name, antigen_dict[antigen][final_subtype]["gff3_feature"])
-                if features_in_seq[product_name].qualifiers.get("note"):
-                    pass
-                else:
-                    features_in_seq[product_name].qualifiers["note"] = []                
-                features_in_seq[product_name].qualifiers["note"].append(f"subtype: {final_subtype}")
+                features_in_seq[product_name] = create_new_feature(product_name, antigen_dict[antigen][final_subtype]["gff3_feature"], gene_configs)
+                ensure_note_list(features_in_seq[product_name]).append(f"subtype: {final_subtype}")
             else:
-                features_in_seq[product_name] = create_new_feature(product_name, gff3_feature)
-                if features_in_seq[product_name].qualifiers.get("note"):
-                    pass
-                else:
-                    features_in_seq[product_name].qualifiers["note"] = []
-                features_in_seq[product_name].qualifiers["note"].append(f"subtype: {subtype}")
+                features_in_seq[product_name] = create_new_feature(product_name, gff3_feature, gene_configs)
+                ensure_note_list(features_in_seq[product_name]).append(f"subtype: {subtype}")
         else:
             if product_name in features_in_seq:
                 features_in_seq[product_name] = update_existing_feature(product_name, gff3_feature, features_in_seq[product_name])
             else:
-                features_in_seq[product_name] = create_new_feature(product_name, gff3_feature)
-                if features_in_seq[product_name].qualifiers.get("note"):
-                    pass
-                else:
-                    features_in_seq[product_name].qualifiers["note"] = []
+                features_in_seq[product_name] = create_new_feature(product_name, gff3_feature, gene_configs)
+                ensure_note_list(features_in_seq[product_name])
     elif any(slip_gene in product_name for slip_gene in slip_list):
 
         if product_name in features_in_seq:
             features_in_seq[product_name] = update_existing_feature(product_name, gff3_feature, features_in_seq[product_name], slip=True)
         else:
-            features_in_seq[product_name] = create_new_feature(product_name, gff3_feature, slip=True)
-            if features_in_seq[product_name].qualifiers.get("note"):
-                pass
-            else:
-                features_in_seq[product_name].qualifiers["note"] = []
+            features_in_seq[product_name] = create_new_feature(product_name, gff3_feature, gene_configs, slip=True)
+            ensure_note_list(features_in_seq[product_name])
     else:
         if product_name in features_in_seq:
             features_in_seq[product_name] = update_existing_feature(product_name, gff3_feature, features_in_seq[product_name])
         else:
-            features_in_seq[product_name] = create_new_feature(product_name, gff3_feature)
-            if features_in_seq[product_name].qualifiers.get("note"):
-                pass
-            else:
-                features_in_seq[product_name].qualifiers["note"] = []
+            features_in_seq[product_name] = create_new_feature(product_name, gff3_feature, gene_configs)
+            ensure_note_list(features_in_seq[product_name])
             
-def to_seqfeatures(gff3_features, antigen_dict, antigen_list, slip_list):
+def to_seqfeatures(gff3_features, antigen_dict, antigen_list, slip_list, gene_configs=None):
     seqfeatures = defaultdict(dict)
     for gff3_feature in gff3_features:
         if gff3_feature.type == "CDS":
-            process_cds_feature(gff3_feature, seqfeatures[gff3_feature.seqid], antigen_dict, antigen_list, slip_list)
+            process_cds_feature(gff3_feature, seqfeatures[gff3_feature.seqid], antigen_dict, antigen_list, slip_list, gene_configs)
     return {key: list(seqfeatures[key].values()) for key in seqfeatures}
 
 def add_translations(seq_record):
     for feature in seq_record.features:
-        if feature.qualifiers.get("note"):
-            pass
-        else:
-            feature.qualifiers["note"] = []
+        ensure_note_list(feature)
         if feature.type == "CDS":
             try:
                 feature.qualifiers["translation"] = feature.translate(seq_record.seq)
@@ -317,7 +333,7 @@ def sanitize_fasta_id(value):
     return "".join(char if char.isalnum() or char in "._-" else "_" for char in value)
 
 def format_cds_record_id(seq_record_id, feature, seen_ids):
-    product = get_first_qualifier(feature, "product", "CDS")
+    product = get_first_qualifier(feature, "gene") or get_first_qualifier(feature, "product", "CDS")
     seq_record_id = sanitize_fasta_id(seq_record_id)
     product_id = sanitize_fasta_id(product)
     if seq_record_id == product_id or seq_record_id.endswith(f"_{product_id}"):
@@ -381,14 +397,16 @@ def main(raw_args=None):
     config = toml.load(args.toml)
     
     seq_records = [record for record in SeqIO.parse(args.input, "fasta")]
-    antigen_list = list(config["serotype"].keys())
+    antigen_list = list(config.get("serotype", {}).keys())
     # To store the keys of a nested dictionary whose value for "ribosomal_slippage" is true, i.e. ribosomal slippage is present in the gene:
-    slip_list = [key for key, value in antigen_dict.items() if value.get("ribosomal_slippage")]
-    seq_features = to_seqfeatures(gff_features, antigen_dict, antigen_list, slip_list)
+    gene_configs = config.get("genes", {})
+    slip_list = [key for key, value in gene_configs.items() if value.get("ribosomal_slippage")]
+    seq_features = to_seqfeatures(gff_features, antigen_dict, antigen_list, slip_list, gene_configs)
     antigen_dict = defaultdict(list)
     for key in seq_features.keys():
         for feature in seq_features[key]:
-            if feature.qualifiers["product"] in antigen_list:
+            gene_name = get_first_qualifier(feature, "gene")
+            if gene_name in antigen_list:
                 subtype = ""
                 if "note" in feature.qualifiers:
                     # if the list of notes contains an element with the word "subtype", then get the subtype information
@@ -397,7 +415,7 @@ def main(raw_args=None):
                         # Get the element of the list that contains the subtype information
                         index_for_subtype = [i for i, s in enumerate(feature.qualifiers["note"]) if "subtype" in s][0]
                         subtype = feature.qualifiers["note"][index_for_subtype].split(": ")[1]
-                antigen_dict[feature.qualifiers["product"]].append(subtype)
+                antigen_dict[gene_name].append(subtype)
     for key, value in antigen_dict.items():
         subtypes = [subtype for subtype in value if subtype]
         unique_subtypes = list(dict.fromkeys(subtypes))

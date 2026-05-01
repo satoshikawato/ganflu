@@ -7,10 +7,7 @@ package:
   version: {{ version }}
 
 source:
-  url: https://github.com/satoshikawato/{{ name }}/archive/refs/tags/v{{ version }}.tar.gz
-  # Fill this after pushing tag v{{ version }}:
-  # curl -L https://github.com/satoshikawato/{{ name }}/archive/refs/tags/v{{ version }}.tar.gz | sha256sum
-  sha256: PUT_SHA256_HERE
+  path: ..
 
 build:
   number: 0
@@ -37,6 +34,7 @@ test:
   source_files:
     - tests/data/B_Victoria_2_87.fa
     - tests/data/PR8.fasta
+    - tests/data/Ann_Arbor.fna
   commands:
     - ganflu --help
     - ganflu --version
@@ -52,6 +50,12 @@ test:
     - test -s smoke/B_Victoria_2_87.cds.fna
     - test -s smoke/B_Victoria_2_87.faa
     - grep -q "B/Victoria/2/1987" smoke/B_Victoria_2_87.gbk
+    - ganflu -i tests/data/Ann_Arbor.fna -o smoke/Ann_Arbor -t ICV --isolate C/Ann_Arbor/1/1950
+    - test -s smoke/Ann_Arbor.gbk
+    - test -s smoke/Ann_Arbor.gff3
+    - test -s smoke/Ann_Arbor.cds.fna
+    - test -s smoke/Ann_Arbor.faa
+    - grep -q "C/Ann_Arbor/1/1950" smoke/Ann_Arbor.gbk
   requires:
     - python {{ python_min }}
 

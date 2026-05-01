@@ -11,6 +11,8 @@ from . import __version__
 from .launchers.miniprot import MiniprotCommandLine
 from .scripts import gff3togbk, validate_reference_files
 
+SUPPORTED_TARGETS = ["IAV", "IBV", "ICV", "IDV"]
+
 def _version():
     """
     Returns the version of the pipeline
@@ -52,9 +54,9 @@ def _get_args() -> argparse.Namespace:
     # Input/Output options
     parser.add_argument("-i", "--input", required=True, type=str, help="Input FASTA file")
     parser.add_argument("-o", "--output", dest="output", default=None, type=str, help="basename for Output GenBank file name (default: <input>)")
-    parser.add_argument("-t", "--target", dest="target", required=True, help="Target (IAV or IBV)", choices=["IAV", "IBV"])
+    parser.add_argument("-t", "--target", dest="target", required=True, help="Target virus", choices=SUPPORTED_TARGETS)
     parser.add_argument("-d", "--db_dir", dest="db_dir", help="Data path (optional; default: ganflu/db)", default=None)
-    parser.add_argument("--isolate", dest="isolate", required=True, help='isolate name (e.g. "A/Narita/1/2009", "A/goose/Guangdong/1/1996", "B/Lee/1940")')
+    parser.add_argument("--isolate", dest="isolate", required=True, help='isolate name (e.g. "A/Narita/1/2009", "A/goose/Guangdong/1/1996", "B/Lee/1940", "C/Ann_Arbor/1/1950", "D/swine/Oklahoma/1334/2011")')
     parser.add_argument("--preserve_original_id", "--preserve-original-id", dest="preserve_original_id", action="store_true", help="Preserve original FASTA record IDs in GenBank output")
     parser.add_argument("--log-file", dest="log_file", default=None, help="Log file path (default: <output>.log)")
     parser.add_argument("--verbose", action="store_true", help="Show debug logs in the terminal")

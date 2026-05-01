@@ -6,7 +6,6 @@ import sys
 import toml
 import logging
 from importlib import resources
-from importlib.resources.abc import Traversable
 
 logger = logging.getLogger("ganflu")
 
@@ -145,7 +144,7 @@ def validate_reference_files(target="", db_dir="", logger=""):
             sys.exit(1)
     else:
         try:
-            db_path_traversable: Traversable = resources.files(
+            db_path_traversable = resources.files(
                 'ganflu.db').joinpath(target)
             db_dir = db_path_traversable.resolve()
         except FileNotFoundError as e:

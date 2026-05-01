@@ -1,2 +1,2 @@
 recursive-include ganflu/db *.toml *.faa
-recursive-include tests/data *.fa *.fasta
+recursive-include tests/data *.fa *.fasta *.fna

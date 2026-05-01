@@ -1,0 +1,36 @@
+[metadata]
+target = "IDV"
+description = "Influenza D virus genomes (7 segments)"
+version = 20260501
+date = 2026-05-01
+classification = "none"
+trans_table = 1
+spliced = true
+prot_faa = "prot/IDV_proteome_consensus.faa"
+[segments]
+"PB2" = {id = 1, file = "PB2.fa", description = "{organism} segment 1 polymerase PB2 (PB2) gene, complete cds"}
+"PB1" = {id = 2, file = "PB1.fa", description = "{organism} segment 2 polymerase PB1 (PB1) gene, complete cds"}
+"P3" = {id = 3, file = "P3.fa", description = "{organism} segment 3 polymerase P3 (P3) gene, complete cds"}
+"HEF" = {id = 4, file = "HEF.fa", description = "{organism} segment 4 hemagglutinin-esterase precursor (HEF) gene, complete cds"}
+"NP" = {id = 5, file = "NP.fa", description = "{organism} segment 5 nucleoprotein (NP) gene, complete cds"}
+"M" = {id = 6, file = "M.fa", description = "{organism} segment 6 P42 (P42) gene, complete cds"}
+"NS" = {id = 7, file = "NS.fa", description = "{organism} segment 7 nonstructural protein 1 (NS1) and nonstructural protein 2 (NS2) genes, complete cds"}
+
+[serotype]
+
+[genes]
+PB1 = {product = "polymerase PB1", note = "polymerase basic protein 1", has_intron = false, ribosomal_slippage = false}
+PB2 = {product = "polymerase PB2", note = "polymerase basic protein 2", has_intron = false, ribosomal_slippage = false}
+P3 = {product = "polymerase P3", note = "polymerase 3 protein", has_intron = false, ribosomal_slippage = false}
+HEF = {product = "hemagglutinin-esterase precursor", has_intron = false, ribosomal_slippage = false}
+NP = {product = "nucleoprotein", has_intron = false, ribosomal_slippage = false}
+P42 = {product = "P42", has_intron = false, ribosomal_slippage = false, gene_synonym = "M1"}
+NS1 = {product = "nonstructural protein 1", has_intron = false, ribosomal_slippage = false}
+NS2 = {product = "nonstructural protein 2", note = "nuclear export protein", has_intron = true, ribosomal_slippage = false}
+
+[annotations]
+"molecule_type" = "cRNA"
+"organism" = "Influenza D virus ({isolate})"
+"taxonomy" = ['Viruses', 'Riboviria', 'Orthornavirae', 'Negarnaviricota', 'Polyploviricotina', 'Insthoviricetes', 'Articulavirales', 'Orthomyxoviridae', 'Deltainfluenzavirus', 'Deltainfluenzavirus influenzae']
+"data_file_division" = "VRL"
+"topology" = "linear"
