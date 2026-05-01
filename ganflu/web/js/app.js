@@ -27,8 +27,18 @@ const elements = {
   logText: $('#log-text')
 };
 
+const getStatusTone = (message) => {
+  const normalized = String(message || '').toLowerCase();
+  if (!normalized || normalized === 'idle') return 'idle';
+  if (normalized.includes('error')) return 'error';
+  if (normalized.includes('completed')) return 'success';
+  return 'working';
+};
+
 const setStatus = (message) => {
-  elements.status.textContent = message || 'Idle';
+  const value = message || 'Idle';
+  elements.status.textContent = value;
+  elements.status.dataset.status = getStatusTone(value);
 };
 
 const setRunning = (running) => {
@@ -93,8 +103,8 @@ const renderOutputs = () => {
   elements.downloadButton.disabled = !selected;
 };
 
-const renderSummary = (result, gff3Text) => {
-  const summary = result.summary || {};
+const renderSummary = (result = {}, gff3Text = '') => {
+  const summary = result?.summary || {};
   const rows = [
     ['Records', summary.record_count ?? '-'],
     ['CDS', summary.cds_count ?? '-'],
@@ -153,6 +163,7 @@ elements.form.addEventListener('submit', async (event) => {
   elements.logText.textContent = '';
   state.outputs = {};
   state.selectedOutput = '';
+  renderSummary();
   renderOutputs();
 
   try {
@@ -209,8 +220,8 @@ elements.clearButton.addEventListener('click', () => {
   elements.outputStem.value = '';
   state.outputs = {};
   state.selectedOutput = '';
-  elements.summary.innerHTML = '';
   elements.logText.textContent = '';
+  renderSummary();
   renderOutputs();
   setStatus('Idle');
 });
@@ -223,4 +234,5 @@ elements.fastaFile.addEventListener('change', () => {
 });
 
 setStatus('Idle');
+renderSummary();
 renderOutputs();
