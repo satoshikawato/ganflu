@@ -47,6 +47,9 @@ def update_config(wheel_name: str) -> None:
 def prepare_browser_wheel() -> Path:
     WEB_ROOT.mkdir(parents=True, exist_ok=True)
     wheel_name = expected_wheel_name()
+    build_dir = REPO_ROOT / "build"
+    if build_dir.exists():
+        shutil.rmtree(build_dir)
     with tempfile.TemporaryDirectory(prefix="ganflu-browser-wheel-") as tmpdir:
         dist_dir = Path(tmpdir) / "dist"
         dist_dir.mkdir()

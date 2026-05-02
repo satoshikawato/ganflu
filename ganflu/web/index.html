@@ -357,6 +357,83 @@
             color: #182230;
             font-size: 12.5px;
         }
+        .auto-dashboard {
+            display: grid;
+            align-content: start;
+            gap: 16px;
+            min-height: 400px;
+            height: 100%;
+            overflow: auto;
+            padding: 16px;
+            background: #fcfdff;
+        }
+        .auto-dashboard[hidden] {
+            display: none;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .dashboard-card,
+        .dashboard-section {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #ffffff;
+        }
+        .dashboard-card {
+            min-height: 78px;
+            padding: 13px 14px;
+        }
+        .dashboard-card span,
+        .dashboard-section h3 {
+            display: block;
+            margin: 0 0 8px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .dashboard-card strong {
+            display: block;
+            font-size: 22px;
+            line-height: 1.15;
+            overflow-wrap: anywhere;
+        }
+        .dashboard-section {
+            overflow: hidden;
+        }
+        .dashboard-section h3 {
+            padding: 13px 14px 0;
+        }
+        .dashboard-table-wrap {
+            overflow-x: auto;
+        }
+        .dashboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }
+        .dashboard-table th,
+        .dashboard-table td {
+            padding: 9px 12px;
+            border-top: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top;
+            white-space: nowrap;
+        }
+        .dashboard-table th {
+            color: var(--muted);
+            background: var(--panel-subtle);
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .dashboard-empty {
+            padding: 12px 14px;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
         .log {
             border-top: 1px solid var(--line);
             padding: 13px 15px;
@@ -408,6 +485,9 @@
             .summary {
                 grid-template-columns: 1fr 1fr;
             }
+            .dashboard-grid {
+                grid-template-columns: 1fr 1fr;
+            }
             .output-head {
                 align-items: stretch;
                 flex-direction: column;
@@ -429,6 +509,9 @@
             }
             .summary div:last-child {
                 border-bottom: 0;
+            }
+            .dashboard-grid {
+                grid-template-columns: 1fr;
             }
             .actions {
                 align-items: stretch;
@@ -469,6 +552,7 @@
                 <div class="field">
                     <label for="target">Target</label>
                     <select id="target">
+                        <option value="auto">Auto</option>
                         <option value="IAV">IAV</option>
                         <option value="IBV">IBV</option>
                         <option value="ICV">ICV</option>
@@ -482,7 +566,7 @@
             </div>
             <div class="field">
                 <label for="isolate">Isolate</label>
-                <input id="isolate" type="text" autocomplete="off" placeholder="A/Puerto_Rico/8/1934">
+                <input id="isolate" type="text" autocomplete="off" placeholder="defaults to output stem">
             </div>
             <label class="check-row">
                 <input id="preserve-original-id" type="checkbox">
@@ -499,6 +583,7 @@
                 <div class="tabs" id="output-tabs"></div>
                 <button id="download-button" type="button" disabled>Download</button>
             </div>
+            <div class="auto-dashboard" id="auto-dashboard" hidden></div>
             <textarea id="output-text" readonly spellcheck="false" placeholder="Output"></textarea>
             <pre class="log" id="log-text"></pre>
         </section>

@@ -1,0 +1,29 @@
+##gff-version 3
+##PAF	PB2	775	0	775	+	NC_006307.2	2365	21	2346	2313	2325	0	AS:i:3971	ms:i:3971	np:i:772	fs:i:0	st:i:1	da:i:0	do:i:-1	cg:Z:775M	cs:Z::2*tttL:95*gccT:12*gtcA:629*gtaI:33
+NC_006307.2	miniprot	mRNA	22	2346	3971	+	.	ID=MP000001;Rank=1;Identity=0.9948;Positive=0.9961;StopCodon=1;Target=PB2 1 775
+NC_006307.2	miniprot	CDS	22	2346	3971	+	0	Parent=MP000001;Rank=1;Identity=0.9948;StopCodon=1;Target=PB2 1 775
+##PAF	PB1	755	0	755	+	NC_006308.2	2363	17	2282	2253	2265	0	AS:i:3886	ms:i:3886	np:i:755	fs:i:0	st:i:1	da:i:0	do:i:57	cg:Z:755M	cs:Z::76*gagD:490*agaK:17*aatS:104*atgI:64
+NC_006308.2	miniprot	mRNA	18	2282	3886	+	.	ID=MP000002;Rank=1;Identity=0.9947;Positive=1.0000;StopCodon=1;Target=PB1 1 755
+NC_006308.2	miniprot	CDS	18	2282	3886	+	0	Parent=MP000002;Rank=1;Identity=0.9947;StopCodon=1;Target=PB1 1 755
+##PAF	P3	710	0	710	+	NC_006309.2	2183	21	2151	2124	2130	0	AS:i:3732	ms:i:3732	np:i:709	fs:i:0	st:i:1	da:i:0	do:i:6	cg:Z:710M	cs:Z::10*gctT:320*aatS:378
+NC_006309.2	miniprot	mRNA	22	2151	3732	+	.	ID=MP000003;Rank=1;Identity=0.9972;Positive=0.9986;StopCodon=1;Target=P3 1 710
+NC_006309.2	miniprot	CDS	22	2151	3732	+	0	Parent=MP000003;Rank=1;Identity=0.9972;StopCodon=1;Target=P3 1 710
+##PAF	HEF	656	0	656	+	NC_006310.2	2073	21	1989	1884	1968	0	AS:i:3311	ms:i:3311	np:i:644	fs:i:0	st:i:1	da:i:0	do:i:12	cg:Z:656M	cs:Z::7*atgV:79*gcaE:50*aatD:26*atgL:12*caaR*gcgV:1*gcaK:3*aaaG:3*aacD:13*aatK:2*gtaK*gaaN:8*ttcS:5*caaR:60*accI:25*atgL:26*gaaK:2*catY:21*attV:25*ataV:12*acgA*gaaK*gaaK:73*gtaE:24*agaK:2*acaI:79*gtaI:11*aacD:59
+NC_006310.2	miniprot	mRNA	22	1989	3311	+	.	ID=MP000004;Rank=1;Identity=0.9573;Positive=0.9817;StopCodon=1;Target=HEF 1 656
+NC_006310.2	miniprot	CDS	22	1989	3311	+	0	Parent=MP000004;Rank=1;Identity=0.9573;StopCodon=1;Target=HEF 1 656
+##PAF	NP	566	0	566	+	NC_006311.1	1807	29	1727	1683	1698	0	AS:i:2851	ms:i:2851	np:i:562	fs:i:0	st:i:1	da:i:0	do:i:-1	cg:Z:566M	cs:Z::297*gccT:100*gagA:15*gctT:139*accA:8*aaaE:2
+NC_006311.1	miniprot	mRNA	30	1727	2851	+	.	ID=MP000005;Rank=1;Identity=0.9912;Positive=0.9929;StopCodon=1;Target=NP 1 566
+NC_006311.1	miniprot	CDS	30	1727	2851	+	0	Parent=MP000005;Rank=1;Identity=0.9912;StopCodon=1;Target=NP 1 566
+##PAF	M1	243	0	242	+	NC_006312.2	1180	25	751	726	726	0	AS:i:1232	ms:i:1232	np:i:242	fs:i:0	st:i:0	da:i:0	do:i:396	cg:Z:242M	cs:Z::242
+NC_006312.2	miniprot	mRNA	26	751	1232	+	.	ID=MP000006;Rank=1;Identity=1.0000;Positive=1.0000;Target=M1 1 242
+NC_006312.2	miniprot	CDS	26	751	1232	+	0	Parent=MP000006;Rank=1;Identity=1.0000;Target=M1 1 242
+##PAF	CM2	140	0	140	+	NC_006312.2	1180	730	1150	411	420	0	AS:i:710	ms:i:710	np:i:138	fs:i:0	st:i:1	da:i:0	do:i:6	cg:Z:140M	cs:Z::13*tgtY:3*acaA:1*caaK:120
+NC_006312.2	miniprot	mRNA	731	1150	710	+	.	ID=MP000007;Rank=1;Identity=0.9786;Positive=0.9857;StopCodon=1;Target=CM2 1 140
+NC_006312.2	miniprot	CDS	731	1150	710	+	0	Parent=MP000007;Rank=1;Identity=0.9786;StopCodon=1;Target=CM2 1 140
+##PAF	NS1	247	0	247	+	NC_006306.2	935	26	767	729	741	0	AS:i:1295	ms:i:1295	np:i:245	fs:i:0	st:i:1	da:i:0	do:i:33	cg:Z:247M	cs:Z::45*aaaR:49*gctV:1*agaS:113*caaR:35
+NC_006306.2	miniprot	mRNA	27	767	1295	+	.	ID=MP000008;Rank=1;Identity=0.9838;Positive=0.9919;StopCodon=1;Target=NS1 1 247
+NC_006306.2	miniprot	CDS	27	767	1295	+	0	Parent=MP000008;Rank=1;Identity=0.9838;StopCodon=1;Target=NS1 1 247
+##PAF	NS2	183	0	183	+	NC_006306.2	935	26	888	534	549	0	AS:i:872	ms:i:892	np:i:182	fs:i:0	st:i:1	da:i:0	do:i:6	cg:Z:62M316U120M	cs:Z::45*aaaR:16*gE~gt313ag-aa:12*aagR:31*aaaE:33*cttH:23*gttI:17
+NC_006306.2	miniprot	mRNA	27	888	892	+	.	ID=MP000009;Rank=1;Identity=0.9727;Positive=0.9945;StopCodon=1;Target=NS2 1 183
+NC_006306.2	miniprot	CDS	27	213	314	+	0	Parent=MP000009;Rank=1;Identity=0.9841;Target=NS2 1 62
+NC_006306.2	miniprot	CDS	527	888	578	+	2	Parent=MP000009;Rank=1;Identity=0.9667;StopCodon=1;Target=NS2 63 183

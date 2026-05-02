@@ -1,0 +1,9 @@
+[M::mp_ntseq_read@0.003*0.17] read 12906 bases in 7 contigs
+[M::mp_idx_build@0.003*0.16] 110 blocks
+[M::mp_idx_build@0.005*0.56] collected syncmers
+[M::mp_idx_build@0.029*0.93] 6236 kmer-block pairs
+[M::mp_idx_print_stat] 6176 distinct k-mers; mean occ of infrequent k-mers: 1.01; 0 frequent k-mers accounting for 0 occurrences
+[M::worker_pipeline::0.039*0.88] mapped 9 sequences
+[M::main] Version: 0.18-r281
+[M::main] CMD: /home/kawato/micromamba/envs/ganflu-0.1.0-test/bin/miniprot -P MP --gff -J 15 Ann_Arbor.fna /home/kawato/micromamba/envs/ganflu-0.1.0-test/lib/python3.14/site-packages/ganflu/db/ICV/prot/ICV_proteome_consensus.faa
+[M::main] Real time: 0.041 sec; CPU: 0.035 sec; Peak RSS: 0.075 GB
