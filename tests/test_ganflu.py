@@ -94,12 +94,13 @@ def test_gui_webapp_assets_and_url_format():
     assert ganflu_cli.get_server_url(DummyServer()) == "http://127.0.0.1:8765/"
 
 
-def make_candidate(segment, score):
+def make_candidate(segment, score, product=None, flags=None, stop_codon_present=True):
+    product = product or segment
     return auto_mode.CandidateHit(
         contig_id="contig1",
         target="IAV",
-        parent_id=f"{segment}_hit",
-        product=segment,
+        parent_id=f"{product}_hit",
+        product=product,
         segment=segment,
         identity=1.0,
         positive=1.0,
@@ -114,7 +115,8 @@ def make_candidate(segment, score):
         raw_score=score,
         normalized_score=score,
         cds_count=1,
-        stop_codon_present=True,
+        stop_codon_present=stop_codon_present,
+        flags=list(flags or []),
     )
 
 
@@ -130,6 +132,97 @@ def test_auto_segment_close_score_is_accepted_not_review():
     assert call.segment == "PB2"
     assert call.status == "complete"
     assert "segment_close_score" in call.flags
+
+
+def test_auto_status_prefers_representative_segment_product_over_accessory_fragment():
+    contig = SeqRecord(Seq("ATG" * 100), id="contig1")
+    call = auto_mode.classify_contig(
+        contig,
+        [
+            make_candidate(
+                "PA",
+                0.98,
+                product="PA-X_fragment01",
+                flags=["missing_stop"],
+                stop_codon_present=False,
+            ),
+            make_candidate("PA", 0.96, product="PA"),
+        ],
+        auto_mode.AutoThresholds(),
+    )
+
+    assert call.call == "accept"
+    assert call.segment == "PA"
+    assert call.best_hit.product == "PA"
+    assert call.status == "complete"
+    assert "missing_stop" not in call.flags
+
+
+def test_auto_status_surfaces_partial_representative_segment_product():
+    contig = SeqRecord(Seq("ATG" * 100), id="contig1")
+    call = auto_mode.classify_contig(
+        contig,
+        [
+            make_candidate("NS", 0.98, product="NS2"),
+            make_candidate(
+                "NS",
+                0.96,
+                product="NS1",
+                flags=["missing_stop"],
+                stop_codon_present=False,
+            ),
+        ],
+        auto_mode.AutoThresholds(),
+    )
+
+    assert call.call == "accept"
+    assert call.segment == "NS"
+    assert call.best_hit.product == "NS1"
+    assert call.status == "partial"
+    assert "missing_stop" in call.flags
+
+
+def test_auto_qc_combines_ribosomal_slippage_fragments_before_flagging(tmp_path):
+    contig = SeqRecord(Seq("ATGAAATAA"), id="contig1")
+    gff3_path = tmp_path / "fragments.gff3"
+    gff3_path.write_text(
+        "\n".join(
+            [
+                "##gff-version 3",
+                "contig1\tminiprot\tmRNA\t1\t6\t1\t+\t.\tID=MP1;Rank=1;Identity=1.0000;Positive=1.0000;Target=PA-X_fragment01 1 2",
+                "contig1\tminiprot\tCDS\t1\t6\t.\t+\t0\tParent=MP1;Rank=1;Identity=1.0000;Target=PA-X_fragment01 1 2",
+                "contig1\tminiprot\tmRNA\t7\t9\t1\t+\t.\tID=MP2;Rank=1;Identity=1.0000;Positive=1.0000;Target=PA-X_fragment02 1 1",
+                "contig1\tminiprot\tCDS\t7\t9\t.\t+\t0\tParent=MP2;Rank=1;Identity=1.0000;Target=PA-X_fragment02 1 1",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    reference = auto_mode.ReferenceBundle(
+        target="IAV",
+        ref_dir=str(tmp_path),
+        toml_path=str(tmp_path / "IAV.toml"),
+        prot_faa=str(tmp_path / "prot.faa"),
+        config={"segments": {"PA": {}}, "serotype": {}},
+        segment_keys=["PA"],
+        gene_configs={"PA-X": {"ribosomal_slippage": True}},
+        protein_lengths={"PA-X_fragment01": 2, "PA-X_fragment02": 1},
+    )
+
+    candidates = auto_mode.parse_miniprot_gff3(
+        str(gff3_path),
+        reference,
+        {"contig1": contig},
+        auto_mode.AutoThresholds(),
+    )
+    assert len(candidates) == 2
+    assert all("missing_start" not in candidate.flags for candidate in candidates)
+    assert all("missing_stop" not in candidate.flags for candidate in candidates)
+
+    call = auto_mode.classify_contig(contig, candidates, auto_mode.AutoThresholds())
+    assert call.call == "accept"
+    assert call.segment == "PA"
+    assert call.status == "complete"
 
 
 def test_internal_stop_marks_cds_as_misc_feature():
@@ -312,3 +405,98 @@ def test_cli_auto_smoke_identifies_iav_and_writes_reports(tmp_path):
     assert summary["counts"]["accepted"] == 8
     assert summary["by_target"]["IAV"]["accepted"] == 8
     assert "auto.summary_json" in summary["outputs"]
+
+
+def assert_mixed_iav_genbank(path, expected_serotype):
+    text = path.read_text(encoding="utf-8")
+    assert expected_serotype in text
+    records = list(SeqIO.parse(path, "genbank"))
+    assert len(records) == 16
+
+    seen_locations = set()
+    for record in records:
+        for feature in record.features:
+            if feature.type != "CDS":
+                continue
+            gene = feature.qualifiers.get("gene", [""])[0]
+            product = feature.qualifiers.get("product", [""])[0]
+            notes = feature.qualifiers.get("note", [])
+            subtype_notes = [note for note in notes if note.startswith("subtype: ")]
+            if subtype_notes:
+                assert gene in {"HA", "NA"}
+                assert all(note.startswith(f"subtype: {gene[0]}") for note in subtype_notes)
+            location_key = (record.id, gene, product, str(feature.location))
+            assert location_key not in seen_locations
+            seen_locations.add(location_key)
+
+
+@pytest.mark.parametrize(
+    ("input_file", "stem", "expected_serotype"),
+    [
+        ("H1N1_H5N1_mix.fa", "H1N1_H5N1_fixed", "HXN1"),
+        ("H1N1_H7N9_mix.fna", "H1N1_H7N9_fixed", "HXNX"),
+    ],
+)
+def test_cli_mixed_iav_fixed_target_smoke(tmp_path, input_file, stem, expected_serotype):
+    if not shutil.which("miniprot"):
+        pytest.skip("miniprot is required for CLI smoke tests")
+
+    output_stem = tmp_path / stem
+    argv = [
+        "ganflu",
+        "-i",
+        str(DATA_DIR / input_file),
+        "-o",
+        str(output_stem),
+        "-t",
+        "IAV",
+        "--isolate",
+        "A/mixed/1/2026",
+    ]
+
+    original_argv = sys.argv
+    try:
+        sys.argv = argv
+        assert ganflu_cli.main() == 0
+    finally:
+        sys.argv = original_argv
+
+    assert_mixed_iav_genbank(tmp_path / f"{stem}.gbk", expected_serotype)
+
+
+@pytest.mark.parametrize(
+    ("input_file", "stem", "expected_serotype", "expected_statuses"),
+    [
+        ("H1N1_H5N1_mix.fa", "H1N1_H5N1_auto", "HXN1", {"complete": 16}),
+        ("H1N1_H7N9_mix.fna", "H1N1_H7N9_auto", "HXNX", {"complete": 15, "partial": 1}),
+    ],
+)
+def test_cli_mixed_iav_auto_smoke(tmp_path, input_file, stem, expected_serotype, expected_statuses):
+    if not shutil.which("miniprot"):
+        pytest.skip("miniprot is required for CLI smoke tests")
+
+    output_stem = tmp_path / stem
+    argv = [
+        "ganflu",
+        "-i",
+        str(DATA_DIR / input_file),
+        "-o",
+        str(output_stem),
+        "-t",
+        "auto",
+        "--isolate",
+        "A/mixed/1/2026",
+    ]
+
+    original_argv = sys.argv
+    try:
+        sys.argv = argv
+        assert ganflu_cli.main() == 0
+    finally:
+        sys.argv = original_argv
+
+    summary = json.loads((tmp_path / f"{stem}.auto.summary.json").read_text(encoding="utf-8"))
+    assert summary["counts"]["accepted"] == 16
+    assert summary["by_target"]["IAV"]["accepted"] == 16
+    assert summary["by_status"] == expected_statuses
+    assert_mixed_iav_genbank(tmp_path / f"{stem}.IAV.gbk", expected_serotype)

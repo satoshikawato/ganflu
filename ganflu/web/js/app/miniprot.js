@@ -19,11 +19,22 @@ export const createMiniprotManager = ({ onStatus = () => {} } = {}) => {
     proteinFasta,
     prefix = 'MP',
     intronOpenPenalty = 15,
+    bestN = 100,
+    outputScoreRatio = 0.1,
+    secondaryToPrimaryRatio = 0.1,
     statusLabel = 'Running Miniprot'
   }) => {
     const runtime = await init();
     onStatus(statusLabel);
-    return runtime.run({ genomeFasta, proteinFasta, prefix, intronOpenPenalty });
+    return runtime.run({
+      genomeFasta,
+      proteinFasta,
+      prefix,
+      intronOpenPenalty,
+      bestN,
+      outputScoreRatio,
+      secondaryToPrimaryRatio
+    });
   };
 
   return {

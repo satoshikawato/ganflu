@@ -16,7 +16,7 @@ from Bio.SeqFeature import CompoundLocation, FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
 from ganflu.launchers.miniprot import MiniprotCommandLine
-from ganflu.scripts import gff3togbk, validate_reference_files
+from ganflu.scripts import gff3_prune, gff3togbk, validate_reference_files
 
 
 DEFAULT_AUTO_TARGETS = ("IAV", "IBV", "ICV", "IDV")
@@ -352,7 +352,7 @@ def parse_miniprot_gff3(
     stop_codon_parents = set()
 
     with open(gff3_path, "r", encoding="utf-8") as handle:
-        for line in handle:
+        for line_index, line in enumerate(handle):
             if not line.strip():
                 continue
             if line.startswith("##PAF\t"):
@@ -381,6 +381,7 @@ def parse_miniprot_gff3(
                         "strand": strand,
                         "identity": parse_float(attrs.get("Identity")),
                         "positive": parse_float(attrs.get("Positive")),
+                        "line_index": line_index,
                     }
                 )
             elif feature_type == "CDS" and "Parent" in attrs:
@@ -452,7 +453,58 @@ def parse_miniprot_gff3(
         )
         candidate.flags = collect_candidate_flags(candidate, thresholds)
         candidates.append(candidate)
+    adjust_ribosomal_slippage_fragment_qc(
+        candidates,
+        cds_by_parent,
+        contigs_by_id,
+        reference,
+        thresholds,
+    )
     return candidates
+
+
+def is_ribosomal_slippage_fragment(candidate: CandidateHit, reference: ReferenceBundle) -> bool:
+    gene_name = product_gene_name(candidate.product)
+    gene_config = reference.gene_configs.get(gene_name, {})
+    return bool(gene_config.get("ribosomal_slippage") and candidate.product != gene_name)
+
+
+def adjust_ribosomal_slippage_fragment_qc(
+    candidates: list[CandidateHit],
+    cds_by_parent: dict[str, list[CdsRow]],
+    contigs_by_id: dict[str, SeqRecord],
+    reference: ReferenceBundle,
+    thresholds: AutoThresholds,
+) -> None:
+    grouped = defaultdict(list)
+    for candidate in candidates:
+        if is_ribosomal_slippage_fragment(candidate, reference):
+            grouped[(candidate.contig_id, product_gene_name(candidate.product))].append(candidate)
+
+    for (contig_id, gene_name), fragment_candidates in grouped.items():
+        if len(fragment_candidates) < 2:
+            continue
+        contig_record = contigs_by_id.get(contig_id)
+        if contig_record is None:
+            continue
+        group_cds_rows = []
+        for candidate in fragment_candidates:
+            group_cds_rows.extend(cds_by_parent.get(candidate.parent_id, []))
+        if not group_cds_rows:
+            continue
+
+        internal_stop_count, missing_start_count, missing_stop_count = get_translation_qc(
+            contig_record,
+            gene_name,
+            group_cds_rows,
+        )
+        group_has_stop = missing_stop_count == 0
+        for candidate in fragment_candidates:
+            candidate.internal_stop_count = internal_stop_count
+            candidate.missing_start_count = missing_start_count
+            candidate.missing_stop_count = missing_stop_count
+            candidate.stop_codon_present = group_has_stop
+            candidate.flags = collect_candidate_flags(candidate, thresholds)
 
 
 def candidate_sort_key(candidate: CandidateHit):
@@ -462,6 +514,51 @@ def candidate_sort_key(candidate: CandidateHit):
         candidate.identity,
         candidate.raw_score,
     )
+
+
+PRIMARY_SEGMENT_PRODUCTS = {
+    "M": {"M1", "P42"},
+    "NS": {"NS1"},
+}
+
+
+def is_segment_representative_candidate(candidate: CandidateHit) -> bool:
+    segment = candidate.segment
+    if not segment:
+        return False
+    if candidate.product == segment:
+        return True
+    if candidate.product.startswith(f"{segment}_"):
+        return True
+    return product_gene_name(candidate.product) in PRIMARY_SEGMENT_PRODUCTS.get(segment, set())
+
+
+def passes_auto_thresholds(candidate: CandidateHit, thresholds: AutoThresholds) -> bool:
+    return (
+        candidate.identity >= thresholds.min_identity
+        and candidate.aa_coverage >= thresholds.min_aa_coverage
+        and candidate.normalized_score >= thresholds.min_score
+    )
+
+
+def choose_report_candidate(
+    candidates: list[CandidateHit],
+    best: CandidateHit,
+    thresholds: AutoThresholds,
+) -> CandidateHit:
+    representatives = [
+        candidate
+        for candidate in candidates
+        if (
+            candidate.target == best.target
+            and candidate.segment == best.segment
+            and is_segment_representative_candidate(candidate)
+            and passes_auto_thresholds(candidate, thresholds)
+        )
+    ]
+    if representatives:
+        return max(representatives, key=candidate_sort_key)
+    return best
 
 
 def best_by_target_and_segment(candidates: list[CandidateHit]) -> dict[str, dict[str, CandidateHit]]:
@@ -591,24 +688,25 @@ def classify_contig(
         )
 
     second_segment = target_second_segment.get(best.target)
-    status = determine_status(best, thresholds)
-    flags = best.flags
+    report_best = choose_report_candidate(candidates, best, thresholds)
+    status = determine_status(report_best, thresholds)
+    flags = report_best.flags
     notes = []
     if second_segment and best.normalized_score - second_segment.normalized_score < thresholds.min_margin:
-        flags = list(dict.fromkeys([*best.flags, "segment_close_score"]))
+        flags = list(dict.fromkeys([*flags, "segment_close_score"]))
         notes = ["best segment and second segment scores are close"]
     return AutoCall(
         contig_id=contig.id,
         length=len(contig.seq),
         call="accept",
-        target=best.target,
-        segment=best.segment or "-",
+        target=report_best.target,
+        segment=report_best.segment or "-",
         status=status,
         flags=flags,
         confidence=determine_confidence(
-            "accept", status, best.normalized_score, margin, thresholds
+            "accept", status, report_best.normalized_score, margin, thresholds
         ),
-        best_hit=best,
+        best_hit=report_best,
         second_target=second_target,
         second_score=second_score,
         score_margin=margin,
@@ -693,63 +791,15 @@ def filter_gff3_for_target(
     accepted_segments: dict[str, str],
     reference: ReferenceBundle,
 ) -> None:
-    kept_parent_ids = set()
-    with open(scan_gff3, "r", encoding="utf-8") as handle:
-        for line in handle:
-            if line.startswith("#"):
-                continue
-            columns = line.rstrip("\n").split("\t")
-            if len(columns) != 9:
-                continue
-            seqid, _, feature_type, _, _, _, _, _, attributes = columns
-            if seqid not in accepted_segments:
-                continue
-            attrs = parse_gff3_attributes(attributes)
-            if feature_type in {"mRNA", "CDS"} and "Target" in attrs:
-                product, _, _ = parse_target_attribute(attrs["Target"])
-                segment = get_product_segment(product, reference.segment_keys)
-                if segment == accepted_segments[seqid]:
-                    if "ID" in attrs:
-                        kept_parent_ids.add(attrs["ID"])
-                    if "Parent" in attrs:
-                        kept_parent_ids.add(attrs["Parent"])
-
-    wrote_version = False
-    with open(scan_gff3, "r", encoding="utf-8") as source:
-        with open(output_gff3, "w", encoding="utf-8") as output:
-            for line in source:
-                if not line.strip():
-                    continue
-                if line.startswith("##gff-version"):
-                    if not wrote_version:
-                        output.write(line)
-                        wrote_version = True
-                    continue
-                if line.startswith("##PAF\t"):
-                    if paf_line_matches(line, accepted_segments, reference.segment_keys):
-                        output.write(line)
-                    continue
-                if line.startswith("#"):
-                    continue
-                columns = line.rstrip("\n").split("\t")
-                if len(columns) != 9:
-                    continue
-                seqid, _, feature_type, _, _, _, _, _, attributes = columns
-                if seqid not in accepted_segments:
-                    continue
-                attrs = parse_gff3_attributes(attributes)
-                keep = False
-                if feature_type in {"mRNA", "CDS"} and "Target" in attrs:
-                    product, _, _ = parse_target_attribute(attrs["Target"])
-                    segment = get_product_segment(product, reference.segment_keys)
-                    keep = segment == accepted_segments[seqid]
-                elif attrs.get("Parent") in kept_parent_ids:
-                    keep = True
-                if keep:
-                    if not wrote_version:
-                        output.write("##gff-version 3\n")
-                        wrote_version = True
-                    output.write(line)
+    gff3_prune.prune_gff3(
+        scan_gff3,
+        output_gff3,
+        protein_lengths=reference.protein_lengths,
+        antigen_names=reference.config.get("serotype", {}).keys(),
+        accepted_segments=accepted_segments,
+        segment_keys=reference.segment_keys,
+        product_to_segment=gff3togbk.product_to_segment,
+    )
 
 
 def write_target_fasta(
@@ -965,6 +1015,9 @@ def run_auto(args, output_stem: str, work_dir: str, logger) -> dict:
             stderr_filename=f"{target}.miniprot.stderr",
             kmer_size=15,
             prefix=MINIPROT_PREFIXES.get(target, "MP"),
+            max_secondary_alignments=gff3_prune.RELAXED_MAX_SECONDARY_ALIGNMENTS,
+            secondary_to_primary_ratio=gff3_prune.RELAXED_SECONDARY_TO_PRIMARY_RATIO,
+            output_score_ratio=gff3_prune.RELAXED_OUTPUT_SCORE_RATIO,
         )
         miniprot.run_piped_commands()
         candidates = parse_miniprot_gff3(

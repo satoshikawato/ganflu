@@ -270,7 +270,7 @@ def process_cds_feature(gff3_feature, features_in_seq, antigen_dict, antigen_lis
     product_name = product.split("_")[0]
 
 
-    if any(antigen in product_name for antigen in antigen_list):
+    if product_name in antigen_list:
         
         if len(product.split("_")) > 1:
             antigen = product_name
@@ -293,7 +293,7 @@ def process_cds_feature(gff3_feature, features_in_seq, antigen_dict, antigen_lis
             else:
                 features_in_seq[product_name] = create_new_feature(product_name, gff3_feature, gene_configs)
                 ensure_note_list(features_in_seq[product_name])
-    elif any(slip_gene in product_name for slip_gene in slip_list):
+    elif product_name in slip_list:
 
         if product_name in features_in_seq:
             features_in_seq[product_name] = update_existing_feature(product_name, gff3_feature, features_in_seq[product_name], slip=True)
@@ -309,9 +309,17 @@ def process_cds_feature(gff3_feature, features_in_seq, antigen_dict, antigen_lis
             
 def to_seqfeatures(gff3_features, antigen_dict, antigen_list, slip_list, gene_configs=None):
     seqfeatures = defaultdict(dict)
+    antigen_dict_by_seqid = defaultdict(lambda: defaultdict(dict))
     for gff3_feature in gff3_features:
         if gff3_feature.type == "CDS":
-            process_cds_feature(gff3_feature, seqfeatures[gff3_feature.seqid], antigen_dict, antigen_list, slip_list, gene_configs)
+            process_cds_feature(
+                gff3_feature,
+                seqfeatures[gff3_feature.seqid],
+                antigen_dict_by_seqid[gff3_feature.seqid],
+                antigen_list,
+                slip_list,
+                gene_configs,
+            )
     return {key: list(seqfeatures[key].values()) for key in seqfeatures}
 
 def add_translations(seq_record):
@@ -428,16 +436,18 @@ def main(raw_args=None):
                         index_for_subtype = [i for i, s in enumerate(feature.qualifiers["note"]) if "subtype" in s][0]
                         subtype = feature.qualifiers["note"][index_for_subtype].split(": ")[1]
                 antigen_dict[gene_name].append(subtype)
-    for key, value in antigen_dict.items():
+    aggregated_antigens = {}
+    for key in antigen_list:
+        value = antigen_dict.get(key, [])
         subtypes = [subtype for subtype in value if subtype]
         unique_subtypes = list(dict.fromkeys(subtypes))
         if len(unique_subtypes) == 0:
-            antigen_dict[key] = ""
+            aggregated_antigens[key] = ""
         elif len(unique_subtypes) == 1:
-            antigen_dict[key] = unique_subtypes[0]
+            aggregated_antigens[key] = unique_subtypes[0]
         else:
-            antigen_dict[key] = f"{key[0]}X"
-    serotype = "".join([value for _, value in antigen_dict.items() if value])
+            aggregated_antigens[key] = f"{key[0]}X"
+    serotype = "".join([aggregated_antigens[key] for key in antigen_list if aggregated_antigens[key]])
     annotations = {}
     annotations["molecule_type"] = config["annotations"]["molecule_type"]
     annotations["isolate"] = args.isolate

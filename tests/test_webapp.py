@@ -67,9 +67,13 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert 'placeholder="defaults to output stem"' in index_html
     assert 'id="auto-dashboard"' in index_html
     app_js = (WEB_ROOT / "js" / "app.js").read_text(encoding="utf-8")
+    miniprot_js = (WEB_ROOT / "js" / "app" / "miniprot.js").read_text(encoding="utf-8")
     helpers_js = (WEB_ROOT / "js" / "app" / "python-helpers.js").read_text(encoding="utf-8")
     assert "runAutoGff3ToOutputs" in app_js
     assert "renderTargetDashboard" in app_js
+    assert "bestN = 100" in miniprot_js
+    assert "outputScoreRatio = 0.1" in miniprot_js
+    assert "secondaryToPrimaryRatio = 0.1" in miniprot_js
     assert "run_ganflu_auto_web" in helpers_js
     assert 'f"{stem}.summary.json"' in helpers_js
 

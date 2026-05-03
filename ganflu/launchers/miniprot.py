@@ -12,7 +12,20 @@ logger = logging.getLogger()
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 class MiniprotCommandLine(CommandLineTool):
-    def __init__(self, input=None, work_dir=None, output=None, prot_faa=None, miniprot_bin="miniprot", stderr_filename="miniprot.stderr", kmer_size=15, prefix="MP"):
+    def __init__(
+        self,
+        input=None,
+        work_dir=None,
+        output=None,
+        prot_faa=None,
+        miniprot_bin="miniprot",
+        stderr_filename="miniprot.stderr",
+        kmer_size=15,
+        prefix="MP",
+        max_secondary_alignments=None,
+        secondary_to_primary_ratio=None,
+        output_score_ratio=None,
+    ):
         super().__init__(miniprot_bin, stderr_filename, work_dir)
         self.miniprot_bin = miniprot_bin
         self.input = input
@@ -20,10 +33,20 @@ class MiniprotCommandLine(CommandLineTool):
         self.kmer_size = str(kmer_size)
         self.prot_faa = prot_faa
         self.prefix = prefix
+        self.max_secondary_alignments = max_secondary_alignments
+        self.secondary_to_primary_ratio = secondary_to_primary_ratio
+        self.output_score_ratio = output_score_ratio
         #miniprot -J 15 --gff A_duck_Japan_AQ-HE29-22_2017_H7N9.fa IAV_proteome_consensus.faa >A_duck_Japan_AQ-HE29-22_2017_H7N9.gff3
     def run_piped_commands(self):
         stderr_path = os.path.join(self.work_dir, self.stderr_file_name)
-        cmdline = [self.bin_path, '-P', self.prefix, '--gff', '-J', self.kmer_size, self.input, self.prot_faa]
+        cmdline = [self.bin_path, '-P', self.prefix, '--gff', '-J', self.kmer_size]
+        if self.max_secondary_alignments is not None:
+            cmdline.extend(['-N', str(self.max_secondary_alignments)])
+        if self.output_score_ratio is not None:
+            cmdline.append(f"--outs={self.output_score_ratio}")
+        if self.secondary_to_primary_ratio is not None:
+            cmdline.extend(['-p', str(self.secondary_to_primary_ratio)])
+        cmdline.extend([self.input, self.prot_faa])
         logger.info(f"Running command: {' '.join(cmdline)}")
         logger.debug(f"miniprot stdout file: {self.output}")
         logger.debug(f"miniprot stderr file: {stderr_path}")

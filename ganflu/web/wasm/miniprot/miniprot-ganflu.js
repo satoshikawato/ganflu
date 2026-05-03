@@ -23,15 +23,40 @@ const readWasmText = (module, ptr, len) => {
   return decoder.decode(bytes);
 };
 
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+const pickOption = (options, keys, fallback) => {
+  for (const key of keys) {
+    if (hasOwn(options, key)) return options[key];
+  }
+  return fallback;
+};
+
+const toNumber = (value, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const toInteger = (value, fallback) => Math.trunc(toNumber(value, fallback));
+
 export const createGanfluMiniprot = async (moduleOptions = {}) => {
   const module = await createMiniprotModule(moduleOptions);
 
-  const run = ({
-    genomeFasta,
-    proteinFasta,
-    prefix = 'MP',
-    intronOpenPenalty = 15
-  } = {}) => {
+  const run = (options = {}) => {
+    const {
+      genomeFasta,
+      proteinFasta,
+      prefix = 'MP'
+    } = options;
+    const intronOpenPenalty = toInteger(pickOption(options, ['intronOpenPenalty', 'J', '-J'], 15), 15);
+    const bestN = toInteger(pickOption(options, ['bestN', 'N', '-N'], 30), 30);
+    const outputScoreRatio = toNumber(pickOption(options, ['outputScoreRatio', 'outs', '--outs'], 0.99), 0.99);
+    const secondaryToPrimaryRatio = toNumber(pickOption(options, [
+      'secondaryToPrimaryRatio',
+      'priRatio',
+      'p',
+      '-p'
+    ], 0.7), 0.7);
     const allocations = [
       copyToWasm(module, toBytes(genomeFasta, 'genomeFasta')),
       copyToWasm(module, toBytes(proteinFasta, 'proteinFasta')),
@@ -45,7 +70,10 @@ export const createGanfluMiniprot = async (moduleOptions = {}) => {
         allocations[1].ptr,
         allocations[1].len,
         allocations[2].ptr,
-        Number.isFinite(intronOpenPenalty) ? Math.trunc(intronOpenPenalty) : 15
+        intronOpenPenalty,
+        bestN,
+        outputScoreRatio,
+        secondaryToPrimaryRatio
       );
       const ptr = exitCode === 0
         ? module._miniprot_ganflu_result_ptr()

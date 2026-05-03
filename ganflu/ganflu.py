@@ -9,10 +9,11 @@ import time
 import functools
 import http.server
 import webbrowser
+import tempfile
 from importlib import resources
 from . import __version__
 from .launchers.miniprot import MiniprotCommandLine
-from .scripts import auto_mode, gff3togbk, validate_reference_files
+from .scripts import auto_mode, gff3_prune, gff3togbk, validate_reference_files
 
 SUPPORTED_TARGETS = ["IAV", "IBV", "ICV", "IDV"]
 CLI_TARGETS = SUPPORTED_TARGETS + ["auto"]
@@ -223,14 +224,41 @@ def main():
     gbk_file = f"{out_stem}.gbk"
     cds_fna_file = f"{out_stem}.cds.fna"
     faa_file = f"{out_stem}.faa"
+    raw_gff3_file = None
     try:
         logger.info("Running miniprot")
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".raw.gff3",
+            prefix=f"{os.path.basename(out_stem)}.",
+            dir=work_dir,
+            delete=False,
+        ) as raw_gff3:
+            raw_gff3_file = raw_gff3.name
         miniprot = MiniprotCommandLine(
-            input=input_fasta, work_dir=work_dir, output=gff3_file,
-            prot_faa=ref_faa, miniprot_bin="miniprot", stderr_filename="miniprot.stderr", kmer_size=15
+            input=input_fasta, work_dir=work_dir, output=raw_gff3_file,
+            prot_faa=ref_faa, miniprot_bin="miniprot", stderr_filename="miniprot.stderr", kmer_size=15,
+            max_secondary_alignments=gff3_prune.RELAXED_MAX_SECONDARY_ALIGNMENTS,
+            secondary_to_primary_ratio=gff3_prune.RELAXED_SECONDARY_TO_PRIMARY_RATIO,
+            output_score_ratio=gff3_prune.RELAXED_OUTPUT_SCORE_RATIO,
             )
         miniprot.run_piped_commands()
-        logger.info(f"miniprot GFF3 output: {gff3_file}")
+        logger.info("Pruning miniprot GFF3")
+        prune_result = gff3_prune.prune_gff3(
+            raw_gff3_file,
+            gff3_file,
+            prot_faa=ref_faa,
+            antigen_names=ref_toml.get("serotype", {}).keys(),
+        )
+        logger.info(
+            f"Pruned GFF3 output: {gff3_file} "
+            f"({prune_result.selected_parent_count} parent alignment(s))"
+        )
+        try:
+            os.remove(raw_gff3_file)
+            raw_gff3_file = None
+        except OSError:
+            logger.debug(f"Could not remove temporary raw GFF3: {raw_gff3_file}", exc_info=True)
 
         logger.info("Converting GFF3 to GenBank")
         gff3togbk_args = [
