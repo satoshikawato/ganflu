@@ -94,7 +94,16 @@ def test_gui_webapp_assets_and_url_format():
     assert ganflu_cli.get_server_url(DummyServer()) == "http://127.0.0.1:8765/"
 
 
-def make_candidate(segment, score, product=None, flags=None, stop_codon_present=True):
+def make_candidate(
+    segment,
+    score,
+    product=None,
+    flags=None,
+    stop_codon_present=True,
+    query_start=1,
+    query_end=300,
+    identity=1.0,
+):
     product = product or segment
     return auto_mode.CandidateHit(
         contig_id="contig1",
@@ -102,14 +111,14 @@ def make_candidate(segment, score, product=None, flags=None, stop_codon_present=
         parent_id=f"{product}_hit",
         product=product,
         segment=segment,
-        identity=1.0,
+        identity=identity,
         positive=1.0,
         ref_aa_start=1,
         ref_aa_end=100,
         ref_aa_length=100,
         aa_coverage=1.0,
-        query_start=1,
-        query_end=300,
+        query_start=query_start,
+        query_end=query_end,
         query_coverage=1.0,
         strand="+",
         raw_score=score,
@@ -120,7 +129,7 @@ def make_candidate(segment, score, product=None, flags=None, stop_codon_present=
     )
 
 
-def test_auto_segment_close_score_is_accepted_not_review():
+def test_auto_multiple_segment_hits_are_reported_without_forcing_review():
     contig = SeqRecord(Seq("ATG" * 100), id="contig1")
     call = auto_mode.classify_contig(
         contig,
@@ -129,9 +138,56 @@ def test_auto_segment_close_score_is_accepted_not_review():
     )
 
     assert call.call == "accept"
+    assert call.qc_result == "pass"
     assert call.segment == "PB2"
     assert call.status == "complete"
-    assert "segment_close_score" in call.flags
+    assert call.confidence == "medium"
+    assert "multiple_segment_hits" in call.flags
+    assert "segment_close_score" not in call.flags
+    assert call.second_segment_hit.segment == "PB1"
+
+
+def test_auto_multiple_segment_hits_warn_on_nonoverlapping_query_ranges():
+    contig = SeqRecord(Seq("ATG" * 250), id="contig1")
+    call = auto_mode.classify_contig(
+        contig,
+        [
+            make_candidate("PB2", 0.90, query_start=1, query_end=300),
+            make_candidate("PB1", 0.80, query_start=451, query_end=750),
+        ],
+        auto_mode.AutoThresholds(min_margin=0.10),
+    )
+
+    row = auto_mode.auto_call_to_row(call)
+
+    assert call.call == "reject"
+    assert call.qc_result == "fail"
+    assert call.status == "chimeric"
+    assert "multiple_segment_hits" in call.flags
+    assert "possible_chimeric_contig" in call.flags
+    assert any("non-overlapping query range" in note for note in call.notes)
+    assert row["second_segment"] == "PB1"
+    assert row["second_segment_score"] == "0.8000"
+    assert row["second_segment_product"] == "PB1"
+    assert row["second_segment_query_range"] == "451-750"
+    assert row["qc_result"] == "fail"
+
+
+def test_auto_low_identity_hit_fails_qc():
+    contig = SeqRecord(Seq("ATG" * 100), id="contig1")
+    call = auto_mode.classify_contig(
+        contig,
+        [make_candidate("PB2", 0.50, identity=0.50, flags=["low_identity"])],
+        auto_mode.AutoThresholds(min_identity=0.70, min_score=0.10),
+    )
+
+    row = auto_mode.auto_call_to_row(call)
+
+    assert call.call == "reject"
+    assert call.qc_result == "fail"
+    assert call.status == "off_target"
+    assert "low_identity" in call.flags
+    assert row["qc_result"] == "fail"
 
 
 def test_auto_status_prefers_representative_segment_product_over_accessory_fragment():
@@ -398,11 +454,14 @@ def test_cli_auto_smoke_identifies_iav_and_writes_reports(tmp_path):
         rows = list(csv.DictReader(handle, delimiter="\t"))
     assert len(rows) == 8
     assert {row["call"] for row in rows} == {"accept"}
+    assert {row["qc_result"] for row in rows} == {"pass"}
     assert {row["target"] for row in rows} == {"IAV"}
     assert {row["status"] for row in rows} == {"complete"}
 
     summary = json.loads((tmp_path / "PR8_auto.auto.summary.json").read_text(encoding="utf-8"))
     assert summary["counts"]["accepted"] == 8
+    assert summary["counts"]["passed"] == 8
+    assert summary["by_qc_result"] == {"pass": 8}
     assert summary["by_target"]["IAV"]["accepted"] == 8
     assert "auto.summary_json" in summary["outputs"]
 

@@ -33,6 +33,7 @@ TSV_COLUMNS = [
     "target",
     "segment",
     "status",
+    "qc_result",
     "flags",
     "confidence",
     "best_identity",
@@ -41,6 +42,10 @@ TSV_COLUMNS = [
     "second_target",
     "second_score",
     "score_margin",
+    "second_segment",
+    "second_segment_score",
+    "second_segment_product",
+    "second_segment_query_range",
     "best_product",
     "best_target_range",
     "best_query_range",
@@ -149,9 +154,11 @@ class AutoCall:
     target: str = "-"
     segment: str = "-"
     status: str = "no_hit"
+    qc_result: str = "fail"
     flags: list[str] = field(default_factory=list)
     confidence: str = "low"
     best_hit: CandidateHit | None = None
+    second_segment_hit: CandidateHit | None = None
     second_target: str = "-"
     second_score: float = 0.0
     score_margin: float = 0.0
@@ -541,6 +548,44 @@ def passes_auto_thresholds(candidate: CandidateHit, thresholds: AutoThresholds) 
     )
 
 
+def query_overlap_fraction(first: CandidateHit, second: CandidateHit) -> float:
+    first_start, first_end = sorted((first.query_start, first.query_end))
+    second_start, second_end = sorted((second.query_start, second.query_end))
+    first_length = max(0, first_end - first_start + 1)
+    second_length = max(0, second_end - second_start + 1)
+    shorter_length = min(first_length, second_length)
+    if not shorter_length:
+        return 0.0
+    overlap = max(0, min(first_end, second_end) - max(first_start, second_start) + 1)
+    return overlap / shorter_length
+
+
+def segment_hit_warnings(
+    best: CandidateHit,
+    second_segment: CandidateHit | None,
+    thresholds: AutoThresholds,
+) -> tuple[list[str], list[str]]:
+    if second_segment is None or not passes_auto_thresholds(second_segment, thresholds):
+        return [], []
+
+    flags = ["multiple_segment_hits"]
+    notes = [
+        (
+            "additional threshold-passing segment-compatible hit detected: "
+            f"{second_segment.segment} {second_segment.product} "
+            f"score={format_float(second_segment.normalized_score)} "
+            f"query={second_segment.query_range}"
+        )
+    ]
+    if query_overlap_fraction(best, second_segment) <= 0.20:
+        flags.append("possible_chimeric_contig")
+        notes.append(
+            "additional segment hit is on a largely non-overlapping query range; "
+            "possible chimeric or concatenated contig"
+        )
+    return flags, notes
+
+
 def choose_report_candidate(
     candidates: list[CandidateHit],
     best: CandidateHit,
@@ -607,6 +652,16 @@ def determine_confidence(
     ):
         return "high"
     return "medium"
+
+
+def determine_qc_result(call: str, status: str, flags: list[str]) -> str:
+    if call != "accept":
+        return "fail"
+    fail_statuses = {"frameshift", "nonfunctional", "chimeric"}
+    fail_flags = {"low_identity", "low_aa_coverage", "low_score", "possible_chimeric_contig"}
+    if status in fail_statuses or any(flag in fail_flags for flag in flags):
+        return "fail"
+    return "pass"
 
 
 def classify_contig(
@@ -691,10 +746,32 @@ def classify_contig(
     report_best = choose_report_candidate(candidates, best, thresholds)
     status = determine_status(report_best, thresholds)
     flags = report_best.flags
-    notes = []
-    if second_segment and best.normalized_score - second_segment.normalized_score < thresholds.min_margin:
-        flags = list(dict.fromkeys([*flags, "segment_close_score"]))
-        notes = ["best segment and second segment scores are close"]
+    segment_flags, notes = segment_hit_warnings(report_best, second_segment, thresholds)
+    flags = list(dict.fromkeys([*flags, *segment_flags]))
+    if "possible_chimeric_contig" in flags:
+        return AutoCall(
+            contig_id=contig.id,
+            length=len(contig.seq),
+            call="reject",
+            target=report_best.target,
+            segment=report_best.segment or "-",
+            status="chimeric",
+            qc_result="fail",
+            flags=flags,
+            confidence="low",
+            best_hit=report_best,
+            second_segment_hit=second_segment,
+            second_target=second_target,
+            second_score=second_score,
+            score_margin=margin,
+            notes=notes,
+        )
+    confidence = determine_confidence(
+        "accept", status, report_best.normalized_score, margin, thresholds
+    )
+    if "multiple_segment_hits" in flags and confidence == "high":
+        confidence = "medium"
+    qc_result = determine_qc_result("accept", status, flags)
     return AutoCall(
         contig_id=contig.id,
         length=len(contig.seq),
@@ -702,11 +779,11 @@ def classify_contig(
         target=report_best.target,
         segment=report_best.segment or "-",
         status=status,
+        qc_result=qc_result,
         flags=flags,
-        confidence=determine_confidence(
-            "accept", status, report_best.normalized_score, margin, thresholds
-        ),
+        confidence=confidence,
         best_hit=report_best,
+        second_segment_hit=second_segment,
         second_target=second_target,
         second_score=second_score,
         score_margin=margin,
@@ -731,6 +808,7 @@ def format_float(value: float) -> str:
 
 def auto_call_to_row(call: AutoCall) -> dict[str, str | int]:
     best = call.best_hit
+    second_segment = call.second_segment_hit
     return {
         "contig_id": call.contig_id,
         "length": call.length,
@@ -738,6 +816,7 @@ def auto_call_to_row(call: AutoCall) -> dict[str, str | int]:
         "target": call.target,
         "segment": call.segment,
         "status": call.status,
+        "qc_result": call.qc_result,
         "flags": ";".join(call.flags) if call.flags else "-",
         "confidence": call.confidence,
         "best_identity": format_float(best.identity) if best else "0.0000",
@@ -746,6 +825,12 @@ def auto_call_to_row(call: AutoCall) -> dict[str, str | int]:
         "second_target": call.second_target,
         "second_score": format_float(call.second_score),
         "score_margin": format_float(call.score_margin),
+        "second_segment": second_segment.segment if second_segment else "-",
+        "second_segment_score": (
+            format_float(second_segment.normalized_score) if second_segment else "0.0000"
+        ),
+        "second_segment_product": second_segment.product if second_segment else "-",
+        "second_segment_query_range": second_segment.query_range if second_segment else "-",
         "best_product": best.product if best else "-",
         "best_target_range": best.target_range if best else "-",
         "best_query_range": best.query_range if best else "-",
@@ -902,6 +987,7 @@ def build_summary(
 ) -> dict:
     call_counts = Counter(call.call for call in calls)
     status_counts = Counter(call.status for call in calls)
+    qc_counts = Counter(call.qc_result for call in calls)
     by_target = {}
     for call in calls:
         if call.target == "-":
@@ -911,11 +997,14 @@ def build_summary(
             {
                 "accepted": 0,
                 "rejected": 0,
+                "passed": 0,
+                "failed": 0,
                 "complete": 0,
                 "partial": 0,
                 "frameshift": 0,
                 "nonfunctional": 0,
                 "ambiguous": 0,
+                "chimeric": 0,
                 "segments": {},
             },
         )
@@ -923,6 +1012,10 @@ def build_summary(
             target_summary["accepted"] += 1
         else:
             target_summary["rejected"] += 1
+        if call.qc_result == "pass":
+            target_summary["passed"] += 1
+        else:
+            target_summary["failed"] += 1
         if call.status in target_summary:
             target_summary[call.status] += 1
         if call.segment != "-":
@@ -939,9 +1032,12 @@ def build_summary(
             "input_contigs": len(calls),
             "accepted": call_counts.get("accept", 0),
             "rejected": call_counts.get("reject", 0),
+            "passed": qc_counts.get("pass", 0),
+            "failed": qc_counts.get("fail", 0),
         },
         "by_target": by_target,
         "by_status": dict(status_counts),
+        "by_qc_result": dict(qc_counts),
         "outputs": outputs,
     }
 

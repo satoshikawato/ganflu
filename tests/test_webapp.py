@@ -55,8 +55,7 @@ def test_webapp_assets_are_packaged_for_static_serving():
         WEB_ROOT / "vendor" / "pyodide" / "v0.29.0" / "full" / "python_stdlib.zip",
         WEB_ROOT / "vendor" / "pyodide-wheels" / "numpy-2.2.5-cp313-cp313-pyodide_2025_0_wasm32.whl",
         WEB_ROOT / "vendor" / "pyodide-wheels" / "biopython-1.85-cp313-cp313-pyodide_2025_0_wasm32.whl",
-        WEB_ROOT / "wasm" / "miniprot" / "dist" / "miniprot-ganflu.mjs",
-        WEB_ROOT / "wasm" / "miniprot" / "dist" / "miniprot-ganflu.wasm",
+        WEB_ROOT / "wasm" / "miniprot" / "miniprot-ganflu.js",
     ]
     missing = [str(path.relative_to(REPO_ROOT)) for path in required if not path.exists()]
     assert not missing
@@ -65,16 +64,50 @@ def test_webapp_assets_are_packaged_for_static_serving():
         '<option value="IAV">IAV</option>'
     )
     assert 'placeholder="defaults to output stem"' in index_html
-    assert 'id="auto-dashboard"' in index_html
+    assert 'id="run-summary"' in index_html
+    assert "Download Results" in index_html
+    assert 'id="download-select"' in index_html
+    assert 'id="advanced-run-details"' in index_html
+    assert 'id="output-tabs"' not in index_html
+    assert 'id="summary"' not in index_html
+    assert 'id="output-text"' not in index_html
+    assert "target-tabs" in index_html
+    assert "target-tab-panel" in index_html
+    assert 'id="advanced-hit-filters"' in index_html
+    assert "sequence-boxes" in index_html
+    assert 'class="help-tip"' in index_html
+    assert "Output stem is updated from the file name" in index_html
+    assert "Minimum normalized hit score" in index_html
+    assert "Miniprot output filter for secondary hits" in index_html
+    assert 'id="min-identity"' in index_html
+    assert 'id="min-identity" type="number" min="0" max="1" step="0.01" value="0.70"' in index_html
+    assert 'id="max-secondary-alignments"' in index_html
     app_js = (WEB_ROOT / "js" / "app.js").read_text(encoding="utf-8")
     miniprot_js = (WEB_ROOT / "js" / "app" / "miniprot.js").read_text(encoding="utf-8")
     helpers_js = (WEB_ROOT / "js" / "app" / "python-helpers.js").read_text(encoding="utf-8")
     assert "runAutoGff3ToOutputs" in app_js
-    assert "renderTargetDashboard" in app_js
+    assert "renderRunSummary" in app_js
+    assert "createZipBlob" in app_js
+    assert "downloadResultsZip" in app_js
+    assert "downloadSelectedResult" in app_js
+    assert "formatDownloadLabel" in app_js
+    assert "getAutoContigTabKey" in app_js
+    assert "groupAutoContigsByTab" in app_js
+    assert "Unclassified" in app_js
+    assert "formatSequenceFasta" in app_js
+    assert "Copied!" in app_js
+    assert "button.disabled = true" not in app_js
+    assert "copySequence" in app_js
+    assert "renderTabs" not in app_js
+    assert "GANFLU_HIT_SETTINGS_JSON" in app_js
+    assert "maxSecondaryAlignments" in app_js
+    assert "elements.outputStem.value = makeSafeStem(file.name)" in app_js
     assert "bestN = 100" in miniprot_js
     assert "outputScoreRatio = 0.1" in miniprot_js
     assert "secondaryToPrimaryRatio = 0.1" in miniprot_js
     assert "run_ganflu_auto_web" in helpers_js
+    assert "_normalize_hit_settings" in helpers_js
+    assert "_build_genbank_feature_data" in helpers_js
     assert 'f"{stem}.summary.json"' in helpers_js
 
 
@@ -84,13 +117,26 @@ def test_single_target_web_helper_skips_no_hit_contigs():
     gff3 = "\n".join(
         [
             "##gff-version 3",
-            "hit\tminiprot\tmRNA\t1\t9\t1\t+\t.\tID=MP000001;Rank=1;Identity=1.0000;Positive=1.0000;Target=PB2 1 3",
-            "hit\tminiprot\tCDS\t1\t9\t.\t+\t0\tParent=MP000001;Identity=1.0000;Target=PB2 1 3",
+            "hit\tminiprot\tmRNA\t1\t9\t1\t+\t.\tID=MP000001;Rank=1;Identity=0.9500;Positive=0.9500;Target=PB2 1 3",
+            "hit\tminiprot\tCDS\t1\t9\t.\t+\t0\tParent=MP000001;Identity=0.9500;Target=PB2 1 3",
         ]
     ) + "\n"
 
+    hit_settings = json.dumps(
+        {
+            "minIdentity": 0.9,
+            "minAaCoverage": 0.001,
+            "minScore": 0.001,
+            "minMargin": 0.2,
+            "completeAaCoverage": 0.001,
+            "maxSecondaryAlignments": 7,
+            "outputScoreRatio": 0.2,
+            "secondaryToPrimaryRatio": 0.3,
+        }
+    )
+
     result = json.loads(
-        helpers["run_ganflu_web"](fasta, gff3, "IAV", "sample", "sample", False)
+        helpers["run_ganflu_web"](fasta, gff3, "IAV", "sample", "sample", False, hit_settings)
     )
 
     assert "error" not in result
@@ -100,12 +146,121 @@ def test_single_target_web_helper_skips_no_hit_contigs():
         "sample.gbk",
         "sample.gff3",
         "sample.hits.tsv",
+        "sample.log",
         "sample.summary.json",
     ]
     assert result["summary"]["input_contigs"] == 2
     assert result["summary"]["annotated_contigs"] == 1
     assert result["summary"]["skipped_contigs"] == 1
+    assert result["summary"]["passed_contigs"] == 1
+    assert result["summary"]["failed_contigs"] == 1
+    assert result["summary"]["by_qc_result"] == {"fail": 1, "pass": 1}
     assert result["summary"]["by_segment"] == {"PB2": 1}
+    assert result["summary"]["thresholds"]["min_identity"] == 0.9
+    assert result["summary"]["thresholds"]["min_aa_coverage"] == 0.001
+    assert result["summary"]["thresholds"]["complete_aa_coverage"] == 0.001
+    assert result["summary"]["miniprot"]["max_secondary_alignments"] == 7
+    assert result["summary"]["miniprot"]["output_score_ratio"] == 0.2
+    assert result["summary"]["schema_version"] == 1
+    assert result["summary"]["mode"] == "target"
+    assert result["summary"]["run"]["counts"]["input_contigs"] == 2
+    assert result["summary"]["run"]["counts"]["annotated_contigs"] == 1
+    assert result["summary"]["downloads"][-1]["kind"] == "log"
+    assert result["summary"]["run_log"]["thresholds"]["min_identity"] == 0.9
+
+    summary_json = json.loads(result["outputs"]["sample.summary.json"])
+    assert summary_json["schema_version"] == 1
+    assert len(summary_json["contigs"]) == 2
+    hit_contig = next(contig for contig in summary_json["contigs"] if contig["input_id"] == "hit")
+    assert hit_contig["record_id"] == "sample_PB2"
+    assert hit_contig["target"] == "IAV"
+    assert hit_contig["segment"] == "PB2"
+    assert hit_contig["qc_result"] == "pass"
+    feature = hit_contig["features"][0]
+    assert feature["gene"] == "PB2"
+    assert feature["product"] == "polymerase PB2"
+    assert feature["metrics"]["identity"] == 0.95
+    assert feature["metrics"]["aa_coverage"] == 1.0
+    assert feature["reference"]["product"] == "PB2"
+    assert feature["sequences"]["cds_nt"] == "ATGAAATAA"
+    assert feature["sequences"]["aa"] == "MK"
+    assert "sample.log" in result["outputs"]
+
+    strict_result = json.loads(
+        helpers["run_ganflu_web"](
+            fasta,
+            gff3,
+            "IAV",
+            "sample",
+            "sample",
+            False,
+            json.dumps({"minIdentity": 0.99, "minAaCoverage": 0.001, "minScore": 0.001}),
+        )
+    )
+    assert strict_result["error"]["type"] == "ValueError"
+    assert "No segment-compatible miniprot hits" in strict_result["error"]["message"]
+
+
+def test_auto_web_helper_summary_downloads_and_features():
+    helpers = load_python_helpers_namespace()
+    fasta = ">hit\nATGAAATAA\n>nohit\nATGAAATAA\n"
+    gff3 = "\n".join(
+        [
+            "##gff-version 3",
+            "hit\tminiprot\tmRNA\t1\t9\t1\t+\t.\tID=MP000001;Rank=1;Identity=0.9500;Positive=0.9500;Target=PB2 1 3",
+            "hit\tminiprot\tCDS\t1\t9\t.\t+\t0\tParent=MP000001;Identity=0.9500;Target=PB2 1 3",
+        ]
+    ) + "\n"
+    hit_settings = json.dumps(
+        {
+            "minIdentity": 0.9,
+            "minAaCoverage": 0.001,
+            "minScore": 0.001,
+            "minMargin": 0.2,
+            "completeAaCoverage": 0.001,
+        }
+    )
+
+    result = json.loads(
+        helpers["run_ganflu_auto_web"](
+            fasta,
+            json.dumps({"IAV": gff3}),
+            "sample",
+            "sample",
+            False,
+            hit_settings,
+        )
+    )
+
+    assert "error" not in result
+    assert sorted(result["outputs"]) == [
+        "sample.IAV.cds.fna",
+        "sample.IAV.faa",
+        "sample.IAV.gbk",
+        "sample.IAV.gff3",
+        "sample.auto.log",
+        "sample.auto.summary.json",
+        "sample.auto.tsv",
+    ]
+    summary = json.loads(result["outputs"]["sample.auto.summary.json"])
+    assert summary["schema_version"] == 1
+    assert summary["mode"] == "auto"
+    assert summary["run"]["target"] == "auto"
+    assert summary["run"]["targets_scanned"] == ["IAV"]
+    assert summary["run"]["counts"]["annotated_contigs"] == 1
+    assert {download["kind"] for download in summary["downloads"]} >= {
+        "summary_json",
+        "gff3",
+        "genbank",
+        "cds_fasta",
+        "protein_fasta",
+        "contig_report",
+        "log",
+    }
+    assert any(download["name"] == "sample.IAV.gff3" and download["target"] == "IAV" for download in summary["downloads"])
+    hit_contig = next(contig for contig in summary["contigs"] if contig["input_id"] == "hit")
+    assert hit_contig["features"][0]["sequences"]["cds_nt"] == "ATGAAATAA"
+    assert hit_contig["features"][0]["sequences"]["aa"] == "MK"
 
 
 def test_browser_wheel_contains_ganflu_db_without_web_assets():
@@ -132,4 +287,4 @@ def test_normal_wheel_contains_webapp_assets(tmp_path):
         names = set(zf.namelist())
     assert "ganflu/web/index.html" in names
     assert f"ganflu/web/ganflu-{ganflu.__version__}-py3-none-any.whl" in names
-    assert "ganflu/web/wasm/miniprot/dist/miniprot-ganflu.wasm" in names
+    assert "ganflu/web/wasm/miniprot/miniprot-ganflu.js" in names

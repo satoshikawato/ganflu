@@ -3,8 +3,72 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ganflu Web</title>
+    <title>ganflu</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
     <style>
+        @font-face {
+            font-family: 'Inter';
+            src: url('./vendor/fonts/inter/inter-latin-300-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 300;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Inter';
+            src: url('./vendor/fonts/inter/inter-latin-400-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Inter';
+            src: url('./vendor/fonts/inter/inter-latin-500-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 500;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Inter';
+            src: url('./vendor/fonts/inter/inter-latin-600-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 600;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Inter';
+            src: url('./vendor/fonts/inter/inter-latin-700-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Noto Sans JP';
+            src: url('./vendor/fonts/noto-sans-jp/noto-sans-jp-japanese-300-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 300;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Noto Sans JP';
+            src: url('./vendor/fonts/noto-sans-jp/noto-sans-jp-japanese-400-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Noto Sans JP';
+            src: url('./vendor/fonts/noto-sans-jp/noto-sans-jp-japanese-500-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 500;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Noto Sans JP';
+            src: url('./vendor/fonts/noto-sans-jp/noto-sans-jp-japanese-700-normal.woff2') format('woff2');
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+        }
         :root {
             color-scheme: light;
             --bg: #f3f6f8;
@@ -21,7 +85,7 @@
             --danger: #aa2636;
             --focus: rgba(13, 107, 117, 0.24);
             --shadow: 0 18px 42px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
         }
         * {
             box-sizing: border-box;
@@ -31,6 +95,7 @@
             min-height: 100vh;
             background: linear-gradient(180deg, #eef4f6 0, var(--bg) 340px);
             color: var(--text);
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
             font-size: 14px;
         }
         header {
@@ -49,34 +114,51 @@
         .brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+            max-width: 100%;
             min-width: 0;
         }
         .brand-mark {
-            display: grid;
-            place-items: center;
-            width: 34px;
-            height: 34px;
-            border: 1px solid #b7d7dc;
-            border-radius: 8px;
-            background: linear-gradient(145deg, #f7feff, #dff1f4);
-            color: var(--accent-strong);
-            font-size: 17px;
-            font-weight: 800;
-            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
             flex: 0 0 auto;
         }
+        .brand-icon {
+            display: block;
+            width: 36px;
+            height: 36px;
+        }
         h1 {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            min-width: 0;
+            max-width: 100%;
             margin: 0;
             font-size: 20px;
-            line-height: 1.15;
+            font-weight: 700;
+            line-height: 1;
             letter-spacing: 0;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .app-name {
+            flex: 0 0 auto;
         }
         .subtitle {
-            margin: 3px 0 0;
+            display: inline-block;
+            min-width: 0;
+            margin: 0;
             color: var(--muted);
-            font-size: 12px;
-            line-height: 1.25;
+            font-size: 14px;
+            font-weight: 400;
+            line-height: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: baseline;
         }
         .status {
             display: inline-flex;
@@ -157,7 +239,62 @@
             font-weight: 700;
             color: #344054;
         }
+        .help-tip {
+            position: relative;
+            display: inline-grid;
+            place-items: center;
+            width: 16px;
+            height: 16px;
+            margin-left: 5px;
+            border: 1px solid #b8c7d4;
+            border-radius: 999px;
+            color: var(--muted);
+            background: #ffffff;
+            cursor: help;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1;
+            vertical-align: -2px;
+        }
+        .help-tip::before {
+            content: "?";
+        }
+        .help-tip::after {
+            content: attr(data-help);
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 50%;
+            z-index: 5;
+            width: max-content;
+            max-width: min(280px, 70vw);
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: #182230;
+            color: #ffffff;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.45;
+            opacity: 0;
+            pointer-events: none;
+            text-align: left;
+            transform: translate(-50%, 4px);
+            transition: opacity 0.12s ease, transform 0.12s ease;
+            white-space: normal;
+        }
+        .help-tip:hover,
+        .help-tip:focus-visible {
+            border-color: var(--accent);
+            color: var(--accent-strong);
+            outline: 0;
+        }
+        .help-tip:hover::after,
+        .help-tip:focus-visible::after {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
         input[type="text"],
+        input[type="number"],
         select,
         textarea {
             width: 100%;
@@ -170,6 +307,7 @@
             transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
         }
         input[type="text"],
+        input[type="number"],
         select {
             height: 40px;
             padding: 0 11px;
@@ -200,6 +338,7 @@
             line-height: 1.45;
         }
         input[type="text"]:focus,
+        input[type="number"]:focus,
         select:focus,
         textarea:focus {
             border-color: var(--accent);
@@ -224,6 +363,36 @@
             width: 16px;
             height: 16px;
             accent-color: var(--accent);
+        }
+        .advanced-settings {
+            margin: 0 0 17px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel-subtle);
+            overflow: visible;
+        }
+        .advanced-settings > summary {
+            display: flex;
+            align-items: center;
+            min-height: 42px;
+            padding: 0 12px;
+            color: #344054;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 800;
+            user-select: none;
+        }
+        .advanced-settings > summary::marker {
+            color: var(--accent-strong);
+        }
+        .advanced-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 0 12px 12px;
+        }
+        .advanced-grid .field {
+            margin-bottom: 0;
         }
         .actions {
             display: flex;
@@ -269,176 +438,509 @@
         }
         .results {
             display: grid;
-            grid-template-rows: auto auto minmax(400px, 1fr) auto;
+            grid-template-rows: auto minmax(420px, 1fr) auto;
             overflow: hidden;
         }
-        .summary {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0;
-            border-bottom: 1px solid var(--line);
-            background: var(--panel-subtle);
-        }
-        .summary div {
-            min-height: 74px;
-            padding: 14px 15px;
-            border-right: 1px solid var(--line);
-            overflow: hidden;
-        }
-        .summary div:last-child {
-            border-right: 0;
-        }
-        .summary span {
-            display: block;
-            color: var(--muted);
-            font-size: 12px;
-            font-weight: 700;
-            margin-bottom: 9px;
-        }
-        .summary strong {
-            display: block;
-            font-size: 16px;
-            line-height: 1.3;
-            overflow-wrap: anywhere;
-        }
-        .output-head {
+        .results-head {
             display: flex;
-            gap: 10px;
+            gap: 16px;
             align-items: center;
             justify-content: space-between;
             border-bottom: 1px solid var(--line);
-            padding: 10px 12px;
+            padding: 14px 16px;
             background: #ffffff;
             min-width: 0;
         }
-        .tabs {
-            display: flex;
-            gap: 4px;
-            overflow-x: auto;
-            min-width: 0;
-            padding: 3px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: #edf2f6;
-        }
-        .tabs:empty::before {
-            content: "Output";
-            display: inline-flex;
-            align-items: center;
-            min-height: 30px;
-            padding: 0 11px;
+        .results-head p {
+            margin: 4px 0 0;
             color: var(--muted);
-            font-size: 13px;
-            font-weight: 700;
+            font-size: 12px;
+            line-height: 1.35;
         }
-        .tab {
-            min-height: 30px;
-            padding: 0 11px;
-            border-color: transparent;
-            background: transparent;
-            white-space: nowrap;
-            font-size: 13px;
+        .download-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
-        .tab:hover:not(:disabled) {
-            background: #ffffff;
+        .download-controls select {
+            min-width: min(360px, 44vw);
+            max-width: 440px;
         }
-        .tab.is-active {
-            background: #ffffff;
-            border-color: #ffffff;
-            color: var(--accent-strong);
-            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.10);
+        .download-controls button {
+            min-width: 150px;
         }
-        #output-text {
-            border: 0;
-            border-radius: 0;
-            min-height: 400px;
-            height: 100%;
-            background: #fcfdff;
-            color: #182230;
-            font-size: 12.5px;
-        }
-        .auto-dashboard {
+        .run-summary {
             display: grid;
             align-content: start;
             gap: 16px;
-            min-height: 400px;
             height: 100%;
             overflow: auto;
             padding: 16px;
             background: #fcfdff;
         }
-        .auto-dashboard[hidden] {
-            display: none;
-        }
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 10px;
-        }
-        .dashboard-card,
-        .dashboard-section {
+        .run-overview {
             border: 1px solid var(--line);
             border-radius: 8px;
             background: #ffffff;
         }
-        .dashboard-card {
-            min-height: 78px;
-            padding: 13px 14px;
+        .run-overview dl,
+        .feature-grid {
+            display: grid;
+            gap: 0;
+            margin: 0;
         }
-        .dashboard-card span,
-        .dashboard-section h3 {
-            display: block;
-            margin: 0 0 8px;
+        .run-overview dl {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .run-overview div,
+        .feature-grid div {
+            min-width: 0;
+            padding: 11px 12px;
+            border-right: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+        .run-overview div:nth-child(4n),
+        .feature-grid div:nth-child(4n) {
+            border-right: 0;
+        }
+        .run-overview div:nth-last-child(-n + 4) {
+            border-bottom: 0;
+        }
+        .contig-list,
+        .feature-list,
+        .target-contig-items {
+            display: grid;
+            gap: 12px;
+        }
+        .target-tab-view {
+            display: grid;
+            gap: 12px;
+            min-width: 0;
+        }
+        .target-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-width: 0;
+            padding: 2px;
+        }
+        .target-tab {
+            min-height: 34px;
+            padding: 0 11px;
+            border-color: var(--line-strong);
+            background: #ffffff;
+            color: #344054;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .target-tab:hover:not(:disabled) {
+            border-color: var(--accent);
+            background: #f7feff;
+        }
+        .target-tab.is-active {
+            border-color: #8bbdc4;
+            background: #eaf7f8;
+            color: var(--accent-strong);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+        }
+        .target-tab span {
+            margin-left: 6px;
+            color: inherit;
+            font-size: 11px;
+            font-weight: 800;
+            opacity: 0.75;
+        }
+        .target-tab-panel {
+            display: grid;
+            gap: 12px;
+            min-width: 0;
+        }
+        .target-contig-group {
+            display: grid;
+            gap: 8px;
+        }
+        .target-contig-group-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-width: 0;
+            padding: 0 2px;
+        }
+        .target-contig-group-head h3 {
+            margin: 0;
+            color: #344054;
+            font-size: 13px;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+        .target-contig-group-head span {
             color: var(--muted);
             font-size: 12px;
             font-weight: 800;
+            white-space: nowrap;
         }
-        .dashboard-card strong {
-            display: block;
-            font-size: 22px;
-            line-height: 1.15;
-            overflow-wrap: anywhere;
-        }
-        .dashboard-section {
+        .contig-summary {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #ffffff;
             overflow: hidden;
         }
-        .dashboard-section h3 {
-            padding: 13px 14px 0;
+        .feature-title-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 13px 14px;
         }
-        .dashboard-table-wrap {
-            overflow-x: auto;
+        .contig-head {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 14px;
+            align-items: start;
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel-subtle);
         }
-        .dashboard-table {
+        .contig-head-main {
+            display: grid;
+            grid-template-columns: minmax(190px, 0.44fr) minmax(360px, 1fr);
+            gap: 14px;
+            align-items: start;
+            min-width: 0;
+        }
+        .contig-title-main {
+            min-width: 0;
+        }
+        .contig-head h3,
+        .feature-title-row h4,
+        .advanced-block h3 {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+        .feature-title-main {
+            min-width: 0;
+        }
+        .feature-title-main p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .contig-head p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+        .contig-head-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin: 0;
+            min-width: 0;
+        }
+        .contig-head-metrics div {
+            min-width: 0;
+        }
+        .contig-head-metrics dt {
+            margin: 0 0 4px;
+            color: var(--muted);
+            font-size: 10.5px;
+            font-weight: 800;
+            line-height: 1.2;
+            text-transform: uppercase;
+        }
+        .contig-head-metrics dd {
+            margin: 0;
+            color: #182230;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .contig-badges,
+        .feature-badges {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 6px;
+            min-width: 0;
+        }
+        .summary-badge {
+            display: inline-flex;
+            align-items: center;
+            min-height: 24px;
+            padding: 0 8px;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
+            background: #ffffff;
+            color: #344054;
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .summary-badge.pass {
+            border-color: #b6dbc7;
+            background: #eef9f2;
+            color: var(--success);
+        }
+        .summary-badge.fail {
+            border-color: #e5b4bd;
+            background: #fff1f3;
+            color: var(--danger);
+        }
+        .feature-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .feature-grid dt,
+        .run-overview dt {
+            margin: 0 0 5px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        .feature-grid dd,
+        .run-overview dd {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .feature-summary {
+            border-top: 1px solid var(--line);
+            background: #ffffff;
+        }
+        .feature-summary > summary {
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+        }
+        .feature-summary > summary::-webkit-details-marker {
+            display: none;
+        }
+        .feature-summary > summary:focus-visible {
+            outline: 3px solid var(--focus);
+            outline-offset: -3px;
+        }
+        .feature-summary[open] > summary {
+            border-bottom: 1px solid var(--line);
+        }
+        .feature-summary > .feature-title-row {
+            align-items: center;
+        }
+        .contig-notes {
+            margin: 0 14px 12px;
+            padding: 9px 10px;
+            border: 1px solid #d9e5dc;
+            border-radius: 6px;
+            background: #f4faf5;
+            color: #325b3c;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+        .feature-qualifiers {
+            display: grid;
+            gap: 0;
+            margin: 0;
+            border-top: 1px solid var(--line);
+        }
+        .feature-qualifiers div {
+            display: grid;
+            grid-template-columns: minmax(150px, 0.24fr) minmax(0, 1fr);
+            min-width: 0;
+            border-bottom: 1px solid var(--line);
+        }
+        .feature-qualifiers div:last-child {
+            border-bottom: 0;
+        }
+        .feature-qualifiers dt,
+        .feature-qualifiers dd {
+            margin: 0;
+            padding: 10px 12px;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .feature-qualifiers dt {
+            border-right: 1px solid var(--line);
+            color: var(--muted);
+            background: #fbfdff;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        .feature-qualifiers dd {
+            color: #182230;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .sequence-boxes {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 12px 14px 14px;
+            border-top: 1px solid var(--line);
+        }
+        .sequence-box {
+            min-width: 0;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #ffffff;
+            overflow: hidden;
+        }
+        .sequence-box-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            min-height: 44px;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--line);
+            background: #fbfdff;
+        }
+        .sequence-box-head h5 {
+            margin: 0;
+            color: #182230;
+            font-size: 12px;
+            line-height: 1.25;
+        }
+        .sequence-box-head span {
+            display: block;
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .sequence-box-head button {
+            min-height: 32px;
+            padding: 0 10px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .sequence-box pre {
+            margin: 0;
+            max-height: 180px;
+            overflow: auto;
+            padding: 10px;
+            background: #f8fafc;
+            color: #182230;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+            line-height: 1.45;
+            white-space: pre;
+        }
+        .sequence-box.is-empty pre {
+            color: var(--muted);
+            font-family: inherit;
+            font-weight: 800;
+        }
+        .feature-toggle-icon {
+            position: relative;
+            display: inline-grid;
+            place-items: center;
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
+            background: #ffffff;
+            flex: 0 0 auto;
+            transition: border-color 0.16s ease, background 0.16s ease;
+        }
+        .feature-toggle-icon::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-right: 2px solid #344054;
+            border-bottom: 2px solid #344054;
+            transform: rotate(45deg) translate(-1px, -1px);
+            transition: transform 0.16s ease;
+        }
+        .feature-summary[open] .feature-toggle-icon::before {
+            transform: rotate(225deg) translate(-1px, -1px);
+        }
+        .feature-summary > summary:hover .feature-toggle-icon {
+            border-color: var(--accent);
+            background: #f7feff;
+        }
+        .run-summary-empty {
+            padding: 18px;
+            border: 1px dashed var(--line-strong);
+            border-radius: 8px;
+            color: var(--muted);
+            background: #ffffff;
+            font-weight: 800;
+        }
+        .run-summary-empty.compact {
+            margin: 12px 14px;
+            padding: 12px;
+            font-size: 12px;
+        }
+        .advanced-run-details {
+            border-top: 1px solid var(--line);
+            background: #ffffff;
+        }
+        .advanced-run-details[hidden] {
+            display: none;
+        }
+        .advanced-run-details > summary {
+            min-height: 42px;
+            padding: 12px 16px;
+            color: #344054;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 800;
+            user-select: none;
+        }
+        .advanced-run-body {
+            display: grid;
+            gap: 12px;
+            padding: 0 16px 14px;
+        }
+        .advanced-block {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .advanced-block h3 {
+            padding: 11px 12px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel-subtle);
+        }
+        .advanced-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12.5px;
+            font-size: 12px;
         }
-        .dashboard-table th,
-        .dashboard-table td {
-            padding: 9px 12px;
+        .advanced-table th,
+        .advanced-table td {
+            padding: 8px 12px;
             border-top: 1px solid var(--line);
             text-align: left;
             vertical-align: top;
-            white-space: nowrap;
         }
-        .dashboard-table th {
-            color: var(--muted);
-            background: var(--panel-subtle);
-            font-size: 12px;
-            font-weight: 800;
+        .advanced-table tr:first-child th,
+        .advanced-table tr:first-child td {
+            border-top: 0;
         }
-        .dashboard-empty {
-            padding: 12px 14px;
-            border-top: 1px solid var(--line);
+        .advanced-table th {
+            width: 45%;
             color: var(--muted);
-            font-size: 13px;
-            font-weight: 700;
+            background: #fbfdff;
         }
         .log {
-            border-top: 1px solid var(--line);
-            padding: 13px 15px;
-            min-height: 96px;
-            max-height: 190px;
+            margin: 0;
+            padding: 13px 16px;
+            min-height: 110px;
+            max-height: 220px;
             overflow: auto;
             color: #d9e3ea;
             background: #101820;
@@ -482,36 +984,82 @@
                 padding: 12px;
                 gap: 12px;
             }
-            .summary {
+            .run-overview dl,
+            .feature-grid {
                 grid-template-columns: 1fr 1fr;
             }
-            .dashboard-grid {
-                grid-template-columns: 1fr 1fr;
+            .run-overview div:nth-child(n),
+            .feature-grid div:nth-child(n) {
+                border-right: 1px solid var(--line);
+                border-bottom: 1px solid var(--line);
             }
-            .output-head {
+            .run-overview div:nth-child(2n),
+            .feature-grid div:nth-child(2n) {
+                border-right: 0;
+            }
+            .contig-head {
+                grid-template-columns: 1fr;
+            }
+            .contig-head-main {
+                grid-template-columns: 1fr;
+            }
+            .contig-head-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .contig-badges {
+                justify-content: flex-start;
+            }
+            .sequence-boxes {
+                grid-template-columns: 1fr;
+            }
+            .results-head,
+            .download-controls {
                 align-items: stretch;
                 flex-direction: column;
             }
+            .download-controls select {
+                max-width: none;
+                width: 100%;
+            }
             .row {
+                grid-template-columns: 1fr;
+            }
+            .advanced-grid {
                 grid-template-columns: 1fr;
             }
         }
         @media (max-width: 520px) {
             .brand {
-                align-items: flex-start;
+                align-items: center;
             }
-            .summary {
+            .run-overview dl,
+            .feature-grid {
                 grid-template-columns: 1fr;
             }
-            .summary div {
+            .run-overview div:nth-child(n),
+            .feature-grid div:nth-child(n) {
                 border-right: 0;
                 border-bottom: 1px solid var(--line);
             }
-            .summary div:last-child {
+            .run-overview div:last-child,
+            .feature-grid div:last-child {
                 border-bottom: 0;
             }
-            .dashboard-grid {
+            .feature-title-row {
+                flex-direction: column;
+            }
+            .contig-head-metrics {
                 grid-template-columns: 1fr;
+            }
+            .feature-badges {
+                justify-content: flex-start;
+            }
+            .feature-qualifiers div {
+                grid-template-columns: 1fr;
+            }
+            .feature-qualifiers dt {
+                border-right: 0;
+                border-bottom: 1px solid var(--line);
             }
             .actions {
                 align-items: stretch;
@@ -527,11 +1075,13 @@
 <body>
     <header>
         <div class="brand">
-            <div class="brand-mark" aria-hidden="true">g</div>
-            <div>
-                <h1>ganflu Web</h1>
-                <p class="subtitle">Genome ANnotator for inFLUenza viruses</p>
+            <div class="brand-mark" aria-hidden="true">
+                <img class="brand-icon" src="./favicon.svg" alt="" width="36" height="36">
             </div>
+            <h1>
+                <span class="app-name">ganflu</span>
+                <span class="subtitle">Genome ANnotator for inFLUenza viruses</span>
+            </h1>
         </div>
         <div class="status" id="status" data-status="idle">Idle</div>
     </header>
@@ -541,16 +1091,16 @@
                 <h2>Input</h2>
             </div>
             <div class="field">
-                <label for="fasta-file">FASTA file</label>
+                <label for="fasta-file">FASTA file <span class="help-tip" tabindex="0" data-help="Upload a nucleotide FASTA file. When the selected file changes, Output stem is updated from the file name." aria-label="Upload a nucleotide FASTA file. When the selected file changes, Output stem is updated from the file name."></span></label>
                 <input id="fasta-file" type="file" accept=".fa,.fasta,.fna,.txt,text/plain">
             </div>
             <div class="field">
-                <label for="fasta-text">FASTA text</label>
+                <label for="fasta-text">FASTA text <span class="help-tip" tabindex="0" data-help="Paste nucleotide FASTA records here instead of choosing a file. If a file is selected, the file input is used." aria-label="Paste nucleotide FASTA records here instead of choosing a file. If a file is selected, the file input is used."></span></label>
                 <textarea id="fasta-text" spellcheck="false" autocomplete="off"></textarea>
             </div>
             <div class="row">
                 <div class="field">
-                    <label for="target">Target</label>
+                    <label for="target">Target <span class="help-tip" tabindex="0" data-help="Influenza virus type to annotate against. Auto runs IAV, IBV, ICV, and IDV references and assigns each contig to the best compatible target." aria-label="Influenza virus type to annotate against. Auto runs IAV, IBV, ICV, and IDV references and assigns each contig to the best compatible target."></span></label>
                     <select id="target">
                         <option value="auto">Auto</option>
                         <option value="IAV">IAV</option>
@@ -560,32 +1110,78 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label for="output-stem">Output stem</label>
+                    <label for="output-stem">Output stem <span class="help-tip" tabindex="0" data-help="Base name for generated files. Extensions such as .gbk, .gff3, .cds.fna, and .faa are added automatically." aria-label="Base name for generated files. Extensions such as .gbk, .gff3, .cds.fna, and .faa are added automatically."></span></label>
                     <input id="output-stem" type="text" autocomplete="off" placeholder="sample">
                 </div>
             </div>
             <div class="field">
-                <label for="isolate">Isolate</label>
+                <label for="isolate">Isolate <span class="help-tip" tabindex="0" data-help="Isolate name written to GenBank source annotations. Leave blank to use the Output stem." aria-label="Isolate name written to GenBank source annotations. Leave blank to use the Output stem."></span></label>
                 <input id="isolate" type="text" autocomplete="off" placeholder="defaults to output stem">
             </div>
+            <details class="advanced-settings" id="advanced-hit-filters">
+                <summary>Advanced hit filters <span class="help-tip" tabindex="0" data-help="Optional thresholds for accepting miniprot hits and for controlling how many secondary alignments miniprot emits." aria-label="Optional thresholds for accepting miniprot hits and for controlling how many secondary alignments miniprot emits."></span></summary>
+                <div class="advanced-grid">
+                    <div class="field">
+                        <label for="min-identity">Minimum identity <span class="help-tip" tabindex="0" data-help="Lowest miniprot-reported identity accepted for a hit. For example, 0.70 means 70% identity." aria-label="Lowest miniprot-reported identity accepted for a hit. For example, 0.70 means 70% identity."></span></label>
+                        <input id="min-identity" type="number" min="0" max="1" step="0.01" value="0.70" data-default="0.70">
+                    </div>
+                    <div class="field">
+                        <label for="min-aa-coverage">Minimum AA coverage <span class="help-tip" tabindex="0" data-help="Minimum fraction of the reference protein covered by the alignment. Low values allow partial genes." aria-label="Minimum fraction of the reference protein covered by the alignment. Low values allow partial genes."></span></label>
+                        <input id="min-aa-coverage" type="number" min="0" max="1" step="0.01" value="0.35" data-default="0.35">
+                    </div>
+                    <div class="field">
+                        <label for="min-score">Minimum score <span class="help-tip" tabindex="0" data-help="Minimum normalized hit score used by ganflu. It is identity multiplied by amino-acid coverage." aria-label="Minimum normalized hit score used by ganflu. It is identity multiplied by amino-acid coverage."></span></label>
+                        <input id="min-score" type="number" min="0" max="1" step="0.01" value="0.25" data-default="0.25">
+                    </div>
+                    <div class="field">
+                        <label for="min-margin">Minimum margin <span class="help-tip" tabindex="0" data-help="Required score gap between the best target hit and the next competing target. Smaller values accept closer target calls." aria-label="Required score gap between the best target hit and the next competing target. Smaller values accept closer target calls."></span></label>
+                        <input id="min-margin" type="number" min="0" max="1" step="0.01" value="0.10" data-default="0.10">
+                    </div>
+                    <div class="field">
+                        <label for="complete-aa-coverage">Complete coverage <span class="help-tip" tabindex="0" data-help="Coverage cutoff used to label an accepted hit as complete rather than partial." aria-label="Coverage cutoff used to label an accepted hit as complete rather than partial."></span></label>
+                        <input id="complete-aa-coverage" type="number" min="0" max="1" step="0.01" value="0.90" data-default="0.90">
+                    </div>
+                    <div class="field">
+                        <label for="max-secondary-alignments">Max secondary alignments <span class="help-tip" tabindex="0" data-help="Maximum number of secondary miniprot alignments to keep per query. Higher values can help mixed or ambiguous samples but may be slower." aria-label="Maximum number of secondary miniprot alignments to keep per query. Higher values can help mixed or ambiguous samples but may be slower."></span></label>
+                        <input id="max-secondary-alignments" type="number" min="1" step="1" value="100" data-default="100">
+                    </div>
+                    <div class="field">
+                        <label for="output-score-ratio">Output score ratio <span class="help-tip" tabindex="0" data-help="Miniprot output filter for secondary hits. Lower values keep weaker secondary alignments relative to the best score." aria-label="Miniprot output filter for secondary hits. Lower values keep weaker secondary alignments relative to the best score."></span></label>
+                        <input id="output-score-ratio" type="number" min="0" max="1" step="0.01" value="0.10" data-default="0.10">
+                    </div>
+                    <div class="field">
+                        <label for="secondary-to-primary-ratio">Secondary/primary ratio <span class="help-tip" tabindex="0" data-help="Miniprot threshold for retaining secondary alignments compared with the primary alignment. Lower values keep more secondary hits." aria-label="Miniprot threshold for retaining secondary alignments compared with the primary alignment. Lower values keep more secondary hits."></span></label>
+                        <input id="secondary-to-primary-ratio" type="number" min="0" max="1" step="0.01" value="0.10" data-default="0.10">
+                    </div>
+                </div>
+            </details>
             <label class="check-row">
                 <input id="preserve-original-id" type="checkbox">
-                <span>Preserve original IDs</span>
+                <span>Preserve original IDs <span class="help-tip" tabindex="0" data-help="Keep input FASTA record IDs in outputs instead of replacing them with ganflu-generated IDs." aria-label="Keep input FASTA record IDs in outputs instead of replacing them with ganflu-generated IDs."></span></span>
             </label>
             <div class="actions">
-                <button class="primary" id="run-button" type="submit">Run annotation</button>
-                <button id="clear-button" type="button">Clear</button>
+                <button class="primary" id="run-button" type="submit" title="Run miniprot and ganflu annotation with the current settings.">Run annotation</button>
+                <button id="clear-button" type="button" title="Clear inputs, outputs, logs, and restore default advanced filters.">Clear</button>
             </div>
         </form>
         <section class="panel results">
-            <div class="summary" id="summary"></div>
-            <div class="output-head">
-                <div class="tabs" id="output-tabs"></div>
-                <button id="download-button" type="button" disabled>Download</button>
+            <div class="results-head">
+                <div>
+                    <h2>Run Summary</h2>
+                </div>
+                <div class="download-controls">
+                    <select id="download-select" aria-label="Download result file" disabled>
+                        <option value="">No outputs</option>
+                    </select>
+                    <button id="download-button" type="button" disabled title="Download all output files as a ZIP archive.">Download Results</button>
+                </div>
             </div>
-            <div class="auto-dashboard" id="auto-dashboard" hidden></div>
-            <textarea id="output-text" readonly spellcheck="false" placeholder="Output"></textarea>
-            <pre class="log" id="log-text"></pre>
+            <div class="run-summary" id="run-summary"></div>
+            <details class="advanced-run-details" id="advanced-run-details" hidden>
+                <summary>Run Log / Advanced</summary>
+                <div class="advanced-run-body" id="advanced-run-body"></div>
+                <pre class="log" id="log-text"></pre>
+            </details>
         </section>
     </main>
     <footer>

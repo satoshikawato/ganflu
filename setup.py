@@ -15,9 +15,12 @@ BASE_PACKAGE_DATA = [
 
 WEB_PACKAGE_DATA = [
     "web/*.html",
+    "web/*.svg",
     "web/*.whl",
     "web/js/*.js",
     "web/js/app/*.js",
+    "web/vendor/fonts/inter/*.woff2",
+    "web/vendor/fonts/noto-sans-jp/*.woff2",
     "web/vendor/pyodide-wheels/*.whl",
     "web/vendor/pyodide/v0.29.0/full/*.js",
     "web/vendor/pyodide/v0.29.0/full/*.json",
