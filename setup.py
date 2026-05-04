@@ -14,6 +14,7 @@ BASE_PACKAGE_DATA = [
 ]
 
 WEB_PACKAGE_DATA = [
+    "web/_headers",
     "web/*.html",
     "web/*.svg",
     "web/*.whl",

@@ -414,7 +414,7 @@ const resetResultState = () => {
 
 const fetchSampleText = async (path) => {
   if (!sampleTextCache.has(path)) {
-    const response = await fetch(path, { cache: 'force-cache' });
+    const response = await fetch(path, { cache: 'no-cache' });
     if (!response.ok) {
       throw new Error(`Unable to load sample FASTA: ${path}`);
     }
@@ -427,23 +427,33 @@ const getSampleProfile = (key) => SAMPLE_PROFILES[key] || SAMPLE_PROFILES.auto;
 
 const loadSampleProfile = async (key = elements.target.value, { announce = false } = {}) => {
   const profile = getSampleProfile(key);
-  const fastaParts = await Promise.all(profile.files.map(fetchSampleText));
-  elements.fastaFile.value = '';
-  elements.fastaText.value = `${fastaParts.map((text) => text.trim()).filter(Boolean).join('\n\n')}\n`;
-  elements.target.value = profile.target;
-  elements.outputStem.value = profile.outputStem;
-  elements.isolate.value = profile.isolate;
-  elements.preserveOriginalId.checked = false;
-  resetHitSettings();
-  state.loadedSampleKey = profile.target;
-  state.sampleInputDirty = false;
-  renderSampleTabs();
-  resetResultState();
-  setStatus(announce ? 'Sample loaded' : 'Idle');
+  setStatus('Loading sample data');
+  elements.logText.textContent = '';
+  elements.sampleTabs.forEach((button) => button.setAttribute('aria-busy', 'true'));
+  try {
+    const fastaParts = await Promise.all(profile.files.map(fetchSampleText));
+    elements.fastaFile.value = '';
+    elements.fastaText.value = `${fastaParts.map((text) => text.trim()).filter(Boolean).join('\n\n')}\n`;
+    elements.target.value = profile.target;
+    elements.outputStem.value = profile.outputStem;
+    elements.isolate.value = profile.isolate;
+    elements.preserveOriginalId.checked = false;
+    resetHitSettings();
+    state.loadedSampleKey = profile.target;
+    state.sampleInputDirty = false;
+    renderSampleTabs();
+    resetResultState();
+    setStatus(announce ? 'Sample loaded' : 'Idle');
+  } finally {
+    elements.sampleTabs.forEach((button) => button.removeAttribute('aria-busy'));
+  }
 };
 
 const handleSampleLoadError = (error) => {
   const message = error?.message ? String(error.message) : String(error || 'Sample load failed');
+  state.loadedSampleKey = '';
+  renderSampleTabs();
+  elements.runSummary.innerHTML = `<div class="run-summary-empty">Sample load failed: ${escapeHtml(message)}</div>`;
   elements.logText.textContent = message;
   setStatus('Sample load error');
 };
@@ -1164,7 +1174,8 @@ elements.clearButton.addEventListener('click', () => {
 });
 
 elements.sampleTabs.forEach((button) => {
-  button.addEventListener('click', () => {
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
     loadSampleProfile(button.dataset.sampleKey, { announce: true }).catch(handleSampleLoadError);
   });
 });

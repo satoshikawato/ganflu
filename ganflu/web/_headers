@@ -1,0 +1,5 @@
+/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/samples/*
+  Cache-Control: public, max-age=0, must-revalidate

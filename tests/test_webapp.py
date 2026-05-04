@@ -57,6 +57,7 @@ def test_gff3togbk_accepts_raw_args_without_sys_argv(monkeypatch):
 def test_webapp_assets_are_packaged_for_static_serving():
     required = [
         WEB_ROOT / "index.html",
+        WEB_ROOT / "_headers",
         WEB_ROOT / "open-source-notices.html",
         WEB_ROOT / "js" / "app.js",
         WEB_ROOT / "js" / "app" / "pyodide.js",
@@ -82,6 +83,7 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert 'placeholder="defaults to output stem"' in index_html
     assert 'id="run-summary"' in index_html
     assert "Download Results" in index_html
+    assert '<script type="module" src="./js/app.js?v=20260504"></script>' in index_html
     assert 'id="download-select"' in index_html
     assert 'id="advanced-run-details"' in index_html
     assert 'id="output-tabs"' not in index_html
@@ -103,6 +105,7 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert 'id="min-identity" type="number" min="0" max="1" step="0.01" value="0.70"' in index_html
     assert 'id="max-secondary-alignments"' in index_html
     app_js = (WEB_ROOT / "js" / "app.js").read_text(encoding="utf-8")
+    headers_text = (WEB_ROOT / "_headers").read_text(encoding="utf-8")
     miniprot_js = (WEB_ROOT / "js" / "app" / "miniprot.js").read_text(encoding="utf-8")
     helpers_js = (WEB_ROOT / "js" / "app" / "python-helpers.js").read_text(encoding="utf-8")
     assert "runAutoGff3ToOutputs" in app_js
@@ -120,6 +123,9 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert "copySequence" in app_js
     assert "SAMPLE_PROFILES" in app_js
     assert "loadSampleProfile('auto')" not in app_js
+    assert "cache: 'no-cache'" in app_js
+    assert "Loading sample data" in app_js
+    assert "Sample load failed" in app_js
     assert "elements.target.value = 'IAV'" in app_js
     assert "elements.target.value = 'auto'" not in app_js
     assert "elements.sampleTabs" in app_js
@@ -134,6 +140,9 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert "bestN = 100" in miniprot_js
     assert "outputScoreRatio = 0.1" in miniprot_js
     assert "secondaryToPrimaryRatio = 0.1" in miniprot_js
+    assert "/js/*" in headers_text
+    assert "/samples/*" in headers_text
+    assert "Cache-Control: public, max-age=0, must-revalidate" in headers_text
     assert "run_ganflu_auto_web" in helpers_js
     assert "_normalize_hit_settings" in helpers_js
     assert "_build_genbank_feature_data" in helpers_js
@@ -155,6 +164,7 @@ def test_cloudflare_bundle_copies_required_static_assets(tmp_path):
 
     required = [
         output_root / "index.html",
+        output_root / "_headers",
         output_root / "open-source-notices.html",
         output_root / "js" / "app.js",
         output_root / "js" / "config.js",
@@ -171,6 +181,9 @@ def test_cloudflare_bundle_copies_required_static_assets(tmp_path):
     missing = [str(path.relative_to(output_root)) for path in required if not path.exists()]
     assert not missing
     assert list((output_root / "vendor" / "pyodide-wheels").glob("biopython-*.whl"))
+    assert "Cache-Control: public, max-age=0, must-revalidate" in (
+        output_root / "_headers"
+    ).read_text(encoding="utf-8")
 
     config_text = (output_root / "js" / "config.js").read_text(encoding="utf-8")
     match = re.search(r'GANFLU_WHEEL_NAME\s*=\s*"([^"]+)"', config_text)
