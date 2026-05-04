@@ -3,6 +3,7 @@ import re
 import sys
 import subprocess
 import zipfile
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 import ganflu
@@ -20,6 +21,16 @@ def load_python_helpers_namespace():
     namespace = {}
     exec(match.group(1), namespace)
     return namespace
+
+
+def load_cloudflare_pages_module():
+    module_path = REPO_ROOT / "tools" / "prepare_cloudflare_pages.py"
+    spec = spec_from_file_location("prepare_cloudflare_pages", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_gff3togbk_accepts_raw_args_without_sys_argv(monkeypatch):
@@ -109,6 +120,74 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert "_normalize_hit_settings" in helpers_js
     assert "_build_genbank_feature_data" in helpers_js
     assert 'f"{stem}.summary.json"' in helpers_js
+
+
+def test_local_index_keeps_cloudflare_analytics_deploy_only():
+    index_html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
+    assert "https://static.cloudflareinsights.com/beacon.min.js" not in index_html
+    assert "static.cloudflareinsights.com" not in index_html
+    assert "cloudflareinsights.com" not in index_html
+    assert "<!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->" in index_html
+    assert "<!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->" in index_html
+
+
+def test_cloudflare_bundle_copies_required_static_assets(tmp_path):
+    module = load_cloudflare_pages_module()
+    output_root = module.build_cloudflare_pages_bundle(output_root=tmp_path / "cloudflare-pages")
+
+    required = [
+        output_root / "index.html",
+        output_root / "open-source-notices.html",
+        output_root / "js" / "app.js",
+        output_root / "js" / "config.js",
+        output_root / "vendor" / "pyodide" / "v0.29.0" / "full" / "pyodide.js",
+        output_root / "vendor" / "pyodide" / "v0.29.0" / "full" / "pyodide.asm.wasm",
+        output_root / "vendor" / "pyodide" / "v0.29.0" / "full" / "python_stdlib.zip",
+        output_root / "wasm" / "miniprot" / "miniprot-ganflu.js",
+        output_root / "wasm" / "miniprot" / "dist" / "miniprot-ganflu.wasm",
+    ]
+    missing = [str(path.relative_to(output_root)) for path in required if not path.exists()]
+    assert not missing
+    assert list((output_root / "vendor" / "pyodide-wheels").glob("biopython-*.whl"))
+
+    config_text = (output_root / "js" / "config.js").read_text(encoding="utf-8")
+    match = re.search(r'GANFLU_WHEEL_NAME\s*=\s*"([^"]+)"', config_text)
+    assert match is not None
+    assert sorted(path.name for path in output_root.glob("ganflu-*.whl")) == [match.group(1)]
+
+
+def test_cloudflare_bundle_includes_analytics_only_when_requested(tmp_path):
+    module = load_cloudflare_pages_module()
+
+    no_analytics_root = module.build_cloudflare_pages_bundle(
+        output_root=tmp_path / "cloudflare-pages-no-analytics"
+    )
+    no_analytics_html = (no_analytics_root / "index.html").read_text(encoding="utf-8")
+    assert "static.cloudflareinsights.com" not in no_analytics_html
+    assert "cloudflareinsights.com" not in no_analytics_html
+    assert "<!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->" not in no_analytics_html
+    assert "<!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->" not in no_analytics_html
+
+    analytics_root = module.build_cloudflare_pages_bundle(
+        output_root=tmp_path / "cloudflare-pages-analytics",
+        analytics_token="test-token",
+    )
+    analytics_html = (analytics_root / "index.html").read_text(encoding="utf-8")
+    assert "https://static.cloudflareinsights.com/beacon.min.js" in analytics_html
+    assert "test-token" in analytics_html
+    assert "Uploaded FASTA files are processed locally in your browser" in analytics_html
+    assert "<!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->" not in analytics_html
+    assert "<!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->" not in analytics_html
+
+    source_html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
+    assert "test-token" not in source_html
+    assert "https://static.cloudflareinsights.com/beacon.min.js" not in source_html
+
+
+def test_wrangler_points_at_cloudflare_pages_bundle():
+    wrangler_toml = (REPO_ROOT / "wrangler.toml").read_text(encoding="utf-8")
+    assert 'name = "ganflu"' in wrangler_toml
+    assert 'pages_build_output_dir = "./dist/cloudflare-pages"' in wrangler_toml
 
 
 def test_single_target_web_helper_skips_no_hit_contigs():
