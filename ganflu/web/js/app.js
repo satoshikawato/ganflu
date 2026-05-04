@@ -8,13 +8,53 @@ const DOWNLOAD_ALL_VALUE = '__all__';
 const UNCLASSIFIED_TARGET_KEY = '__unclassified__';
 const UNCLASSIFIED_TARGET_LABEL = 'Unclassified';
 
+const SAMPLE_PROFILES = {
+  auto: {
+    target: 'auto',
+    outputStem: 'ganflu_sample_auto',
+    isolate: 'ganflu_sample_auto',
+    files: [
+      './samples/IAV_PR8.fasta',
+      './samples/IBV_B_Victoria_2_1987.fa',
+      './samples/ICV_Ann_Arbor_1_1950.fna',
+      './samples/IDV_swine_Oklahoma_1334_2011.fna'
+    ]
+  },
+  IAV: {
+    target: 'IAV',
+    outputStem: 'PR8',
+    isolate: 'A/Puerto Rico/8/1934',
+    files: ['./samples/IAV_PR8.fasta']
+  },
+  IBV: {
+    target: 'IBV',
+    outputStem: 'B_Victoria_2_1987',
+    isolate: 'B/Victoria/2/1987',
+    files: ['./samples/IBV_B_Victoria_2_1987.fa']
+  },
+  ICV: {
+    target: 'ICV',
+    outputStem: 'Ann_Arbor_1_1950',
+    isolate: 'C/Ann Arbor/1/50',
+    files: ['./samples/ICV_Ann_Arbor_1_1950.fna']
+  },
+  IDV: {
+    target: 'IDV',
+    outputStem: 'swine_Oklahoma_1334_2011',
+    isolate: 'D/swine/Oklahoma/1334/2011',
+    files: ['./samples/IDV_swine_Oklahoma_1334_2011.fna']
+  }
+};
+
 const state = {
   outputs: {},
   resultSummary: null,
   running: false,
   downloadSelection: DOWNLOAD_ALL_VALUE,
   selectedTargetTab: '',
-  statusMessage: 'Idle'
+  statusMessage: 'Idle',
+  loadedSampleKey: '',
+  sampleInputDirty: false
 };
 
 const AUTO_PREFIXES = {
@@ -51,6 +91,7 @@ const elements = {
   workOverlayMessage: $('#work-overlay-message'),
   advancedRunDetails: $('#advanced-run-details'),
   advancedRunBody: $('#advanced-run-body'),
+  sampleTabs: document.querySelectorAll('[data-sample-key]'),
   clearButton: $('#clear-button'),
   logText: $('#log-text')
 };
@@ -70,7 +111,7 @@ const getStatusTone = (message) => {
   const normalized = String(message || '').toLowerCase();
   if (!normalized || normalized === 'idle') return 'idle';
   if (normalized.includes('error')) return 'error';
-  if (normalized.includes('completed')) return 'success';
+  if (normalized.includes('completed') || normalized.includes('loaded')) return 'success';
   return 'working';
 };
 
@@ -350,6 +391,67 @@ const resetHitSettings = () => {
     if (element) element.value = element.dataset.default ?? '';
   });
   if (elements.advancedHitFilters) elements.advancedHitFilters.open = false;
+};
+
+const sampleTextCache = new Map();
+
+const renderSampleTabs = () => {
+  elements.sampleTabs.forEach((button) => {
+    const active = Boolean(state.loadedSampleKey && !state.sampleInputDirty && button.dataset.sampleKey === state.loadedSampleKey);
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+};
+
+const resetResultState = () => {
+  state.outputs = {};
+  state.resultSummary = null;
+  state.downloadSelection = DOWNLOAD_ALL_VALUE;
+  state.selectedTargetTab = '';
+  elements.logText.textContent = '';
+  renderResults();
+};
+
+const fetchSampleText = async (path) => {
+  if (!sampleTextCache.has(path)) {
+    const response = await fetch(path, { cache: 'force-cache' });
+    if (!response.ok) {
+      throw new Error(`Unable to load sample FASTA: ${path}`);
+    }
+    sampleTextCache.set(path, await response.text());
+  }
+  return sampleTextCache.get(path);
+};
+
+const getSampleProfile = (key) => SAMPLE_PROFILES[key] || SAMPLE_PROFILES.auto;
+
+const loadSampleProfile = async (key = elements.target.value, { announce = false } = {}) => {
+  const profile = getSampleProfile(key);
+  const fastaParts = await Promise.all(profile.files.map(fetchSampleText));
+  elements.fastaFile.value = '';
+  elements.fastaText.value = `${fastaParts.map((text) => text.trim()).filter(Boolean).join('\n\n')}\n`;
+  elements.target.value = profile.target;
+  elements.outputStem.value = profile.outputStem;
+  elements.isolate.value = profile.isolate;
+  elements.preserveOriginalId.checked = false;
+  resetHitSettings();
+  state.loadedSampleKey = profile.target;
+  state.sampleInputDirty = false;
+  renderSampleTabs();
+  resetResultState();
+  setStatus(announce ? 'Sample loaded' : 'Idle');
+};
+
+const handleSampleLoadError = (error) => {
+  const message = error?.message ? String(error.message) : String(error || 'Sample load failed');
+  elements.logText.textContent = message;
+  setStatus('Sample load error');
+};
+
+const markSampleInputDirty = () => {
+  state.sampleInputDirty = true;
+  state.loadedSampleKey = '';
+  renderSampleTabs();
 };
 
 const formatNumber = (value, digits = 3) => {
@@ -1052,23 +1154,39 @@ elements.clearButton.addEventListener('click', () => {
   elements.target.value = 'auto';
   elements.outputStem.value = '';
   elements.isolate.value = '';
+  elements.preserveOriginalId.checked = false;
   resetHitSettings();
-  state.outputs = {};
-  state.resultSummary = null;
-  state.downloadSelection = DOWNLOAD_ALL_VALUE;
-  state.selectedTargetTab = '';
-  elements.logText.textContent = '';
-  renderResults();
+  state.loadedSampleKey = '';
+  state.sampleInputDirty = false;
+  renderSampleTabs();
+  resetResultState();
   setStatus('Idle');
 });
 
+elements.sampleTabs.forEach((button) => {
+  button.addEventListener('click', () => {
+    loadSampleProfile(button.dataset.sampleKey, { announce: true }).catch(handleSampleLoadError);
+  });
+});
+
 elements.fastaFile.addEventListener('change', () => {
+  markSampleInputDirty();
   const file = elements.fastaFile.files?.[0];
   if (file) {
     elements.outputStem.value = makeSafeStem(file.name);
   }
 });
 
+elements.fastaText.addEventListener('input', markSampleInputDirty);
+elements.target.addEventListener('change', markSampleInputDirty);
+elements.outputStem.addEventListener('input', markSampleInputDirty);
+elements.isolate.addEventListener('input', markSampleInputDirty);
+elements.preserveOriginalId.addEventListener('change', markSampleInputDirty);
+HIT_SETTING_DEFINITIONS.forEach(({ element }) => {
+  element?.addEventListener('input', markSampleInputDirty);
+});
+
 elements.target.value = 'auto';
 setStatus('Idle');
 renderResults();
+renderSampleTabs();

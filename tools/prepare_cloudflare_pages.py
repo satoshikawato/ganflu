@@ -16,6 +16,13 @@ DEFAULT_OUTPUT_ROOT = REPO_ROOT / "dist" / "cloudflare-pages"
 ANALYTICS_TOKEN_ENV = "CLOUDFLARE_WEB_ANALYTICS_TOKEN"
 SCRIPT_MARKER = "<!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->"
 NOTICE_MARKER = "<!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->"
+SCRIPT_SRC_BASE = "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval';"
+SCRIPT_SRC_ANALYTICS = (
+    "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' "
+    "https://static.cloudflareinsights.com;"
+)
+CONNECT_SRC_BASE = "connect-src 'self';"
+CONNECT_SRC_ANALYTICS = "connect-src 'self' https://cloudflareinsights.com;"
 
 
 def _load_prepare_browser_wheel_module():
@@ -75,6 +82,9 @@ def build_cloudflare_pages_bundle(
     token = _normalize_analytics_token(analytics_token)
     index_path = output_root / "index.html"
     index_html = index_path.read_text(encoding="utf-8")
+    if token:
+        index_html = _replace_once(index_html, SCRIPT_SRC_BASE, SCRIPT_SRC_ANALYTICS)
+        index_html = _replace_once(index_html, CONNECT_SRC_BASE, CONNECT_SRC_ANALYTICS)
     index_html = _replace_once(
         index_html,
         SCRIPT_MARKER,

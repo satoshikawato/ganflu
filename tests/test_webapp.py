@@ -61,6 +61,10 @@ def test_webapp_assets_are_packaged_for_static_serving():
         WEB_ROOT / "js" / "app.js",
         WEB_ROOT / "js" / "app" / "pyodide.js",
         WEB_ROOT / "js" / "app" / "python-helpers.js",
+        WEB_ROOT / "samples" / "IAV_PR8.fasta",
+        WEB_ROOT / "samples" / "IBV_B_Victoria_2_1987.fa",
+        WEB_ROOT / "samples" / "ICV_Ann_Arbor_1_1950.fna",
+        WEB_ROOT / "samples" / "IDV_swine_Oklahoma_1334_2011.fna",
         WEB_ROOT / "vendor" / "pyodide" / "v0.29.0" / "full" / "pyodide.js",
         WEB_ROOT / "vendor" / "pyodide" / "v0.29.0" / "full" / "pyodide.asm.wasm",
         WEB_ROOT / "vendor" / "pyodide" / "v0.29.0" / "full" / "python_stdlib.zip",
@@ -88,6 +92,9 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert "sequence-boxes" in index_html
     assert 'class="help-tip"' in index_html
     assert "Output stem is updated from the file name" in index_html
+    assert "Load sample data" in index_html
+    assert 'data-sample-key="IAV"' in index_html
+    assert 'data-sample-key="IDV"' in index_html
     assert "Minimum normalized hit score" in index_html
     assert "Miniprot output filter for secondary hits" in index_html
     assert 'id="min-identity"' in index_html
@@ -109,6 +116,13 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert "Copied!" in app_js
     assert "button.disabled = true" not in app_js
     assert "copySequence" in app_js
+    assert "SAMPLE_PROFILES" in app_js
+    assert "loadSampleProfile('auto')" not in app_js
+    assert "elements.sampleTabs" in app_js
+    assert "renderSampleTabs" in app_js
+    assert "A/Puerto Rico/8/1934" in app_js
+    assert "D/swine/Oklahoma/1334/2011" in app_js
+    assert "./samples/IAV_PR8.fasta" in app_js
     assert "renderTabs" not in app_js
     assert "GANFLU_HIT_SETTINGS_JSON" in app_js
     assert "maxSecondaryAlignments" in app_js
@@ -140,6 +154,10 @@ def test_cloudflare_bundle_copies_required_static_assets(tmp_path):
         output_root / "open-source-notices.html",
         output_root / "js" / "app.js",
         output_root / "js" / "config.js",
+        output_root / "samples" / "IAV_PR8.fasta",
+        output_root / "samples" / "IBV_B_Victoria_2_1987.fa",
+        output_root / "samples" / "ICV_Ann_Arbor_1_1950.fna",
+        output_root / "samples" / "IDV_swine_Oklahoma_1334_2011.fna",
         output_root / "vendor" / "pyodide" / "v0.29.0" / "full" / "pyodide.js",
         output_root / "vendor" / "pyodide" / "v0.29.0" / "full" / "pyodide.asm.wasm",
         output_root / "vendor" / "pyodide" / "v0.29.0" / "full" / "python_stdlib.zip",
@@ -367,3 +385,5 @@ def test_normal_wheel_contains_webapp_assets(tmp_path):
     assert "ganflu/web/index.html" in names
     assert f"ganflu/web/ganflu-{ganflu.__version__}-py3-none-any.whl" in names
     assert "ganflu/web/wasm/miniprot/miniprot-ganflu.js" in names
+    assert "ganflu/web/samples/IAV_PR8.fasta" in names
+    assert "ganflu/web/samples/IDV_swine_Oklahoma_1334_2011.fna" in names
