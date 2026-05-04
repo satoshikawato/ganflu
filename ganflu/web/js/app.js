@@ -597,6 +597,10 @@ const renderBadge = (value, tone = '') => {
   return `<span class="${className}">${escapeHtml(value)}</span>`;
 };
 
+const renderFeatureFlagBadges = (flags) => asList(flags)
+  .map((flag) => renderBadge(flag, flag === 'missing_stop' ? 'fail' : ''))
+  .join('');
+
 const metricValue = (feature, contig, key) => {
   const value = feature?.metrics?.[key];
   if (value !== '' && value != null) return value;
@@ -690,6 +694,7 @@ const renderFeatureSummary = (feature, contig, contigIndex, featureIndex) => {
   const cdsNt = sequences.cds_nt || '';
   const aa = sequences.aa || '';
   const notes = asList(feature.notes);
+  const flags = asList(feature.flags);
   const refProduct = reference.product || contig.best_hit?.product || '-';
   const targetRange = reference.target_range || feature.target_range || contig.best_hit?.target_range || '-';
   const queryRange = feature.query_range || contig.best_hit?.query_range || '-';
@@ -707,6 +712,7 @@ const renderFeatureSummary = (feature, contig, contigIndex, featureIndex) => {
           <p>Location ${escapeHtml(feature.location || '-')} | Identity ${escapeHtml(identity)} | AA coverage ${escapeHtml(aaCoverage)}</p>
         </div>
         <div class="feature-badges">
+          ${renderFeatureFlagBadges(flags)}
           ${renderBadge(feature.type || 'feature')}
           <span class="feature-toggle-icon" aria-hidden="true"></span>
         </div>

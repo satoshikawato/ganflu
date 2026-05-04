@@ -298,6 +298,7 @@ def test_single_target_web_helper_skips_no_hit_contigs():
     assert feature["reference"]["product"] == "PB2"
     assert feature["sequences"]["cds_nt"] == "ATGAAATAA"
     assert feature["sequences"]["aa"] == "MK"
+    assert feature["flags"] == []
     assert "sample.log" in result["outputs"]
 
     strict_result = json.loads(
@@ -313,6 +314,58 @@ def test_single_target_web_helper_skips_no_hit_contigs():
     )
     assert strict_result["error"]["type"] == "ValueError"
     assert "No segment-compatible miniprot hits" in strict_result["error"]["message"]
+
+
+def test_web_summary_displays_missing_stop_on_feature_not_contig():
+    helpers = load_python_helpers_namespace()
+    fasta = ">hit\nATGAAAAAA\n"
+    gff3 = "\n".join(
+        [
+            "##gff-version 3",
+            "hit\tminiprot\tmRNA\t1\t9\t1\t+\t.\tID=MP000001;Rank=1;Identity=0.9500;Positive=0.9500;Target=PB2 1 3",
+            "hit\tminiprot\tCDS\t1\t9\t.\t+\t0\tParent=MP000001;Identity=0.9500;Target=PB2 1 3",
+        ]
+    ) + "\n"
+    hit_settings = json.dumps(
+        {"minIdentity": 0.9, "minAaCoverage": 0.001, "minScore": 0.001, "completeAaCoverage": 0.001}
+    )
+
+    result = json.loads(
+        helpers["run_ganflu_web"](fasta, gff3, "IAV", "sample", "sample", False, hit_settings)
+    )
+
+    summary = json.loads(result["outputs"]["sample.summary.json"])
+    hit_contig = summary["contigs"][0]
+    feature = hit_contig["features"][0]
+    assert "missing_stop" not in hit_contig["flags"]
+    assert feature["flags"] == ["missing_stop"]
+
+
+def test_web_summary_does_not_mark_nonterminal_feature_fragment_missing_stop():
+    helpers = load_python_helpers_namespace()
+    fasta = ">hit\nATGAAA\n"
+    gff3 = "\n".join(
+        [
+            "##gff-version 3",
+            "##PAF\tPB2\t3\t0\t2\t+\thit\t6\t0\t6\t6\t6\t0\tAS:i:1",
+            "hit\tminiprot\tmRNA\t1\t6\t1\t+\t.\tID=MP000001;Rank=1;Identity=0.9500;Positive=0.9500;Target=PB2 1 2",
+            "hit\tminiprot\tCDS\t1\t6\t.\t+\t0\tParent=MP000001;Identity=0.9500;Target=PB2 1 2",
+        ]
+    ) + "\n"
+    hit_settings = json.dumps(
+        {"minIdentity": 0.9, "minAaCoverage": 0.001, "minScore": 0.001, "completeAaCoverage": 0.001}
+    )
+
+    result = json.loads(
+        helpers["run_ganflu_web"](fasta, gff3, "IAV", "sample", "sample", False, hit_settings)
+    )
+
+    summary = json.loads(result["outputs"]["sample.summary.json"])
+    hit_contig = summary["contigs"][0]
+    feature = hit_contig["features"][0]
+    assert "missing_stop" not in hit_contig["flags"]
+    assert feature["flags"] == []
+    assert not any("stop codon not found" in note for note in feature["notes"])
 
 
 def test_auto_web_helper_summary_downloads_and_features():

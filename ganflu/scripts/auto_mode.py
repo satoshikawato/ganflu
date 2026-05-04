@@ -97,6 +97,7 @@ class ReferenceBundle:
     segment_keys: list[str]
     gene_configs: dict
     protein_lengths: dict[str, int]
+    protein_terminal_stops: dict[str, bool] = field(default_factory=dict)
 
 
 @dataclass
@@ -193,9 +194,11 @@ def load_reference_bundle(target: str, db_dir: str | None, logger) -> ReferenceB
     )
     toml_path = os.path.join(ref_dir, f"{target}.toml")
     prot_faa = os.path.join(ref_dir, ref_toml["metadata"]["prot_faa"])
-    protein_lengths = {
-        record.id: len(record.seq)
-        for record in SeqIO.parse(prot_faa, "fasta")
+    protein_records = list(SeqIO.parse(prot_faa, "fasta"))
+    protein_lengths = {record.id: len(record.seq) for record in protein_records}
+    protein_terminal_stops = {
+        record.id: str(record.seq).endswith("*")
+        for record in protein_records
     }
     return ReferenceBundle(
         target=target,
@@ -206,6 +209,7 @@ def load_reference_bundle(target: str, db_dir: str | None, logger) -> ReferenceB
         segment_keys=list(ref_toml.get("segments", {}).keys()),
         gene_configs=ref_toml.get("genes", {}),
         protein_lengths=protein_lengths,
+        protein_terminal_stops=protein_terminal_stops,
     )
 
 
@@ -282,14 +286,39 @@ def build_cds_feature(cds_rows: list[CdsRow], product: str) -> SeqFeature | None
     )
 
 
+STOP_CODONS = {"TAA", "TAG", "TGA"}
+
+
+def has_terminal_stop_codon(contig_record: SeqRecord, feature: SeqFeature) -> bool:
+    try:
+        cds_sequence = str(feature.extract(contig_record.seq)).upper().replace("U", "T")
+    except Exception:
+        return False
+    return (
+        len(cds_sequence) >= 3
+        and len(cds_sequence) % 3 == 0
+        and cds_sequence[-3:] in STOP_CODONS
+    )
+
+
+def expects_terminal_stop(product: str, ref_end: int, ref_length: int, reference: ReferenceBundle) -> bool:
+    if not ref_length:
+        return False
+    if reference.protein_terminal_stops.get(product):
+        return ref_end >= ref_length - 1
+    return ref_end >= ref_length
+
+
 def get_translation_qc(
     contig_record: SeqRecord,
     product: str,
     cds_rows: list[CdsRow],
-) -> tuple[int, int, int]:
+    expects_terminal_stop: bool = True,
+) -> tuple[int, int, int, bool]:
     feature = build_cds_feature(cds_rows, product)
     if feature is None:
-        return 0, 0, 0
+        return 0, 0, int(expects_terminal_stop), False
+    stop_codon_present = has_terminal_stop_codon(contig_record, feature)
     record = SeqRecord(
         contig_record.seq,
         id=contig_record.id,
@@ -309,10 +338,8 @@ def get_translation_qc(
     missing_start_count = int(
         any("start codon not found" in note for note in notes)
     )
-    missing_stop_count = int(
-        any("stop codon not found" in note for note in notes)
-    )
-    return internal_stop_count, missing_start_count, missing_stop_count
+    missing_stop_count = int(expects_terminal_stop and not stop_codon_present)
+    return internal_stop_count, missing_start_count, missing_stop_count, stop_codon_present
 
 
 def collect_candidate_flags(
@@ -342,7 +369,7 @@ def collect_candidate_flags(
         flags.extend(["internal_stop", "nonfunctional"])
     if candidate.missing_start_count > 0:
         flags.append("missing_start")
-    if candidate.missing_stop_count > 0 or not candidate.stop_codon_present:
+    if candidate.missing_stop_count > 0:
         flags.append("missing_stop")
     return list(dict.fromkeys(flags))
 
@@ -356,7 +383,6 @@ def parse_miniprot_gff3(
     paf_by_key = {}
     mrna_rows = []
     cds_by_parent = defaultdict(list)
-    stop_codon_parents = set()
 
     with open(gff3_path, "r", encoding="utf-8") as handle:
         for line_index, line in enumerate(handle):
@@ -375,10 +401,11 @@ def parse_miniprot_gff3(
             attrs = parse_gff3_attributes(attributes)
             if feature_type == "mRNA" and "Target" in attrs:
                 product, ref_start, ref_end = parse_target_attribute(attrs["Target"])
+                parent_id = attrs.get("ID", "")
                 mrna_rows.append(
                     {
                         "contig_id": seqid,
-                        "parent_id": attrs.get("ID", ""),
+                        "parent_id": parent_id,
                         "product": product,
                         "ref_start": ref_start,
                         "ref_end": ref_end,
@@ -392,11 +419,10 @@ def parse_miniprot_gff3(
                     }
                 )
             elif feature_type == "CDS" and "Parent" in attrs:
-                cds_by_parent[attrs["Parent"]].append(
+                parent_id = attrs["Parent"]
+                cds_by_parent[parent_id].append(
                     CdsRow(start=int(start), end=int(end), strand=strand)
                 )
-            elif feature_type == "stop_codon" and "Parent" in attrs:
-                stop_codon_parents.add(attrs["Parent"])
 
     candidates = []
     for row in mrna_rows:
@@ -423,8 +449,22 @@ def parse_miniprot_gff3(
             and cds_length % 3 != 0
             and not gene_config.get("ribosomal_slippage")
         )
-        internal_stop_count, missing_start_count, missing_stop_count = get_translation_qc(
-            contig_record, product, cds_rows
+        should_expect_terminal_stop = expects_terminal_stop(
+            product,
+            row["ref_end"],
+            ref_length,
+            reference,
+        )
+        (
+            internal_stop_count,
+            missing_start_count,
+            missing_stop_count,
+            stop_codon_present,
+        ) = get_translation_qc(
+            contig_record,
+            product,
+            cds_rows,
+            expects_terminal_stop=should_expect_terminal_stop,
         )
         touches_edge = any(
             cds.start <= 1 or cds.end >= len(contig_record.seq)
@@ -456,7 +496,7 @@ def parse_miniprot_gff3(
             missing_stop_count=missing_stop_count,
             cds_length_not_mod3=cds_length_not_mod3,
             touches_contig_edge=touches_edge,
-            stop_codon_present=row["parent_id"] in stop_codon_parents,
+            stop_codon_present=stop_codon_present,
         )
         candidate.flags = collect_candidate_flags(candidate, thresholds)
         candidates.append(candidate)
@@ -500,17 +540,21 @@ def adjust_ribosomal_slippage_fragment_qc(
         if not group_cds_rows:
             continue
 
-        internal_stop_count, missing_start_count, missing_stop_count = get_translation_qc(
+        (
+            internal_stop_count,
+            missing_start_count,
+            missing_stop_count,
+            stop_codon_present,
+        ) = get_translation_qc(
             contig_record,
             gene_name,
             group_cds_rows,
         )
-        group_has_stop = missing_stop_count == 0
         for candidate in fragment_candidates:
             candidate.internal_stop_count = internal_stop_count
             candidate.missing_start_count = missing_start_count
             candidate.missing_stop_count = missing_stop_count
-            candidate.stop_codon_present = group_has_stop
+            candidate.stop_codon_present = stop_codon_present
             candidate.flags = collect_candidate_flags(candidate, thresholds)
 
 

@@ -281,6 +281,120 @@ def test_auto_qc_combines_ribosomal_slippage_fragments_before_flagging(tmp_path)
     assert call.status == "complete"
 
 
+def test_auto_terminal_stop_sequence_prevents_missing_stop_flag(tmp_path):
+    contig = SeqRecord(Seq("ATGAAATAA"), id="contig1")
+    gff3_path = tmp_path / "terminal_stop.gff3"
+    gff3_path.write_text(
+        "\n".join(
+            [
+                "##gff-version 3",
+                "contig1\tminiprot\tmRNA\t1\t9\t9\t+\t.\tID=MP1;Rank=1;Identity=1.0000;Positive=1.0000;Target=PB2 1 3",
+                "contig1\tminiprot\tCDS\t1\t9\t9\t+\t0\tParent=MP1;Rank=1;Identity=1.0000;Target=PB2 1 3",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    reference = auto_mode.ReferenceBundle(
+        target="IAV",
+        ref_dir=str(tmp_path),
+        toml_path=str(tmp_path / "IAV.toml"),
+        prot_faa=str(tmp_path / "prot.faa"),
+        config={"segments": {"PB2": {}}, "serotype": {}},
+        segment_keys=["PB2"],
+        gene_configs={},
+        protein_lengths={"PB2": 3},
+    )
+
+    candidates = auto_mode.parse_miniprot_gff3(
+        str(gff3_path),
+        reference,
+        {"contig1": contig},
+        auto_mode.AutoThresholds(),
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0].stop_codon_present is True
+    assert "missing_stop" not in candidates[0].flags
+
+
+def test_auto_stop_codon_attribute_does_not_override_sequence_qc(tmp_path):
+    contig = SeqRecord(Seq("ATGAAAAAA"), id="contig1")
+    gff3_path = tmp_path / "stopcodon_attr_no_terminal_stop.gff3"
+    gff3_path.write_text(
+        "\n".join(
+            [
+                "##gff-version 3",
+                "contig1\tminiprot\tmRNA\t1\t9\t9\t+\t.\tID=MP1;Rank=1;Identity=1.0000;Positive=1.0000;StopCodon=1;Target=PB2 1 3",
+                "contig1\tminiprot\tCDS\t1\t9\t9\t+\t0\tParent=MP1;Rank=1;Identity=1.0000;StopCodon=1;Target=PB2 1 3",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    reference = auto_mode.ReferenceBundle(
+        target="IAV",
+        ref_dir=str(tmp_path),
+        toml_path=str(tmp_path / "IAV.toml"),
+        prot_faa=str(tmp_path / "prot.faa"),
+        config={"segments": {"PB2": {}}, "serotype": {}},
+        segment_keys=["PB2"],
+        gene_configs={},
+        protein_lengths={"PB2": 3},
+    )
+
+    candidates = auto_mode.parse_miniprot_gff3(
+        str(gff3_path),
+        reference,
+        {"contig1": contig},
+        auto_mode.AutoThresholds(),
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0].stop_codon_present is False
+    assert candidates[0].missing_stop_count == 1
+    assert "missing_stop" in candidates[0].flags
+
+
+def test_auto_nonterminal_reference_fragment_does_not_require_stop(tmp_path):
+    contig = SeqRecord(Seq("ATGAAAAAA"), id="contig1")
+    gff3_path = tmp_path / "nonterminal_fragment.gff3"
+    gff3_path.write_text(
+        "\n".join(
+            [
+                "##gff-version 3",
+                "contig1\tminiprot\tmRNA\t1\t9\t9\t+\t.\tID=MP1;Rank=1;Identity=1.0000;Positive=1.0000;Target=NS1 1 3",
+                "contig1\tminiprot\tCDS\t1\t9\t9\t+\t0\tParent=MP1;Rank=1;Identity=1.0000;Target=NS1 1 3",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    reference = auto_mode.ReferenceBundle(
+        target="IAV",
+        ref_dir=str(tmp_path),
+        toml_path=str(tmp_path / "IAV.toml"),
+        prot_faa=str(tmp_path / "prot.faa"),
+        config={"segments": {"NS": {}}, "serotype": {}},
+        segment_keys=["NS"],
+        gene_configs={},
+        protein_lengths={"NS1": 4},
+    )
+
+    candidates = auto_mode.parse_miniprot_gff3(
+        str(gff3_path),
+        reference,
+        {"contig1": contig},
+        auto_mode.AutoThresholds(),
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0].stop_codon_present is False
+    assert candidates[0].missing_stop_count == 0
+    assert "missing_stop" not in candidates[0].flags
+    assert "reference_end_missing" in candidates[0].flags
+
+
 def test_internal_stop_marks_cds_as_misc_feature():
     record = SeqRecord(Seq("ATGTAGAAATAA"), id="internal_stop")
     feature = SeqFeature(

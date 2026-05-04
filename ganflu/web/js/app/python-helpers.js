@@ -20,6 +20,7 @@ from ganflu.scripts import auto_mode, gff3togbk
 
 SUPPORTED_TARGETS = {"IAV", "IBV", "ICV", "IDV"}
 AUTO_TARGETS = ("IAV", "IBV", "ICV", "IDV")
+STOP_CODONS = {"TAA", "TAG", "TGA"}
 WEB_HIT_SETTING_DEFAULTS = {
     "min_identity": 0.70,
     "min_aa_coverage": 0.35,
@@ -223,9 +224,23 @@ def _feature_metric_keys(product):
         keys.append(product.split("_", 1)[0])
     return [key for key in dict.fromkeys(keys) if key]
 
-def _parse_gff3_feature_metrics(gff3_text):
+def _reference_terminal_stop_map(target):
+    target = str(target or "").upper()
+    if target not in SUPPORTED_TARGETS:
+        return {}
+    target_root = resources.files("ganflu").joinpath("db", target)
+    toml_text = _read_resource_text(target_root.joinpath(f"{target}.toml"))
+    config = _load_toml_text(toml_text)
+    prot_text = _read_resource_text(_resource_join(target_root, config["metadata"]["prot_faa"]))
+    return {
+        record.id: str(record.seq).endswith("*")
+        for record in SeqIO.parse(io.StringIO(prot_text), "fasta")
+    }
+
+def _parse_gff3_feature_metrics(gff3_text, target=None):
     paf_meta = {}
     metrics = defaultdict(list)
+    terminal_stops = _reference_terminal_stop_map(target)
     for line in str(gff3_text or "").splitlines():
         if not line.strip():
             continue
@@ -271,6 +286,10 @@ def _parse_gff3_feature_metrics(gff3_text):
             "reference": {
                 "product": product,
                 "target_range": f"{target_start}-{target_end}/{target_length}" if target_length else "-",
+                "target_start": target_start,
+                "target_end": target_end,
+                "target_length": target_length,
+                "terminal_stop": terminal_stops.get(product, False),
             },
             "metrics": {
                 "identity": identity,
@@ -351,6 +370,26 @@ def _feature_sequence_dict(record, feature):
     aa = str(translation or "")
     return {"cds_nt": cds_nt, "aa": aa}
 
+def _sequence_has_terminal_stop(sequence):
+    sequence = str(sequence or "").upper().replace("U", "T")
+    return len(sequence) >= 3 and len(sequence) % 3 == 0 and sequence[-3:] in STOP_CODONS
+
+def _feature_expects_terminal_stop(metric):
+    reference = metric.get("reference", {}) if metric else {}
+    target_length = reference.get("target_length") or 0
+    target_end = reference.get("target_end") or 0
+    if target_length:
+        if reference.get("terminal_stop"):
+            return target_end >= target_length - 1
+        return target_end >= target_length
+    return True
+
+def _feature_qc_flags(sequences, metric):
+    flags = []
+    if _feature_expects_terminal_stop(metric) and not _sequence_has_terminal_stop(sequences.get("cds_nt")):
+        flags.append("missing_stop")
+    return flags
+
 def _sanitize_summary_id(value):
     value = str(value or "feature")
     cleaned = "".join(char if char.isalnum() or char in "._-" else "_" for char in value)
@@ -397,7 +436,7 @@ def _build_genbank_feature_data(gbk_path, calls, filtered_gff3_text, target, acc
             for call in calls
             if call.call == "accept" and call.target == target
         ]
-    metrics_by_key = _parse_gff3_feature_metrics(filtered_gff3_text)
+    metrics_by_key = _parse_gff3_feature_metrics(filtered_gff3_text, target)
     feature_data = {}
     for input_id, record in zip(accepted_input_ids, records):
         call = calls_by_id.get(input_id)
@@ -418,6 +457,14 @@ def _build_genbank_feature_data(gbk_path, calls, filtered_gff3_text, target, acc
             notes = _qualifier_list(feature, "note")
             if "ribosomal_slippage" in feature.qualifiers:
                 notes.append("ribosomal slippage")
+            sequences = _feature_sequence_dict(record, feature)
+            flags = _feature_qc_flags(sequences, metric)
+            if not _feature_expects_terminal_stop(metric):
+                notes = [
+                    note
+                    for note in notes
+                    if "stop codon not found" not in note
+                ]
             feature_summaries.append(
                 {
                     "id": feature_id,
@@ -433,7 +480,8 @@ def _build_genbank_feature_data(gbk_path, calls, filtered_gff3_text, target, acc
                     "metrics": metric.get("metrics", {}) if metric else {},
                     "query_range": metric.get("query_range", "") if metric else "",
                     "target_range": metric.get("target_range", "") if metric else "",
-                    "sequences": _feature_sequence_dict(record, feature),
+                    "sequences": sequences,
+                    "flags": flags,
                     "notes": notes,
                 }
             )
@@ -448,6 +496,16 @@ def _build_contig_summaries(calls, feature_data_by_input):
     contigs = []
     for call in calls:
         feature_data = feature_data_by_input.get(call.contig_id, {})
+        feature_flags = {
+            flag
+            for feature in feature_data.get("features", [])
+            for flag in feature.get("flags", [])
+        }
+        contig_flags = [
+            flag
+            for flag in call.flags
+            if not (flag == "missing_stop" and flag in feature_flags)
+        ]
         contigs.append(
             {
                 "input_id": call.contig_id,
@@ -461,7 +519,7 @@ def _build_contig_summaries(calls, feature_data_by_input):
                 "confidence": call.confidence,
                 "best_hit": _candidate_hit_dict(call.best_hit),
                 "features": feature_data.get("features", []),
-                "flags": list(call.flags),
+                "flags": contig_flags,
                 "notes": list(call.notes),
             }
         )
@@ -732,9 +790,11 @@ def _load_web_reference_bundle(target, work_dir):
     toml_text = _read_resource_text(target_root.joinpath(f"{target}.toml"))
     config = _load_toml_text(toml_text)
     prot_text = _read_resource_text(_resource_join(target_root, config["metadata"]["prot_faa"]))
-    protein_lengths = {
-        record.id: len(record.seq)
-        for record in SeqIO.parse(io.StringIO(prot_text), "fasta")
+    protein_records = list(SeqIO.parse(io.StringIO(prot_text), "fasta"))
+    protein_lengths = {record.id: len(record.seq) for record in protein_records}
+    protein_terminal_stops = {
+        record.id: str(record.seq).endswith("*")
+        for record in protein_records
     }
     toml_path = os.path.join(work_dir, f"{target}.toml")
     with open(toml_path, "w", encoding="utf-8") as handle:
@@ -748,6 +808,7 @@ def _load_web_reference_bundle(target, work_dir):
         segment_keys=list(config.get("segments", {}).keys()),
         gene_configs=config.get("genes", {}),
         protein_lengths=protein_lengths,
+        protein_terminal_stops=protein_terminal_stops,
     )
 
 def _read_text_file(path):
