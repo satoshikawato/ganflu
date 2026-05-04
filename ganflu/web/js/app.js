@@ -9,17 +9,6 @@ const UNCLASSIFIED_TARGET_KEY = '__unclassified__';
 const UNCLASSIFIED_TARGET_LABEL = 'Unclassified';
 
 const SAMPLE_PROFILES = {
-  auto: {
-    target: 'auto',
-    outputStem: 'ganflu_sample_auto',
-    isolate: 'ganflu_sample_auto',
-    files: [
-      './samples/IAV_PR8.fasta',
-      './samples/IBV_B_Victoria_2_1987.fa',
-      './samples/ICV_Ann_Arbor_1_1950.fna',
-      './samples/IDV_swine_Oklahoma_1334_2011.fna'
-    ]
-  },
   IAV: {
     target: 'IAV',
     outputStem: 'PR8',
@@ -43,6 +32,17 @@ const SAMPLE_PROFILES = {
     outputStem: 'swine_Oklahoma_1334_2011',
     isolate: 'D/swine/Oklahoma/1334/2011',
     files: ['./samples/IDV_swine_Oklahoma_1334_2011.fna']
+  },
+  auto: {
+    target: 'auto',
+    outputStem: 'ganflu_sample_auto',
+    isolate: 'ganflu_sample_auto',
+    files: [
+      './samples/IAV_PR8.fasta',
+      './samples/IBV_B_Victoria_2_1987.fa',
+      './samples/ICV_Ann_Arbor_1_1950.fna',
+      './samples/IDV_swine_Oklahoma_1334_2011.fna'
+    ]
   }
 };
 
@@ -1151,7 +1151,7 @@ elements.runSummary.addEventListener('click', (event) => {
 elements.clearButton.addEventListener('click', () => {
   elements.fastaFile.value = '';
   elements.fastaText.value = '';
-  elements.target.value = 'auto';
+  elements.target.value = 'IAV';
   elements.outputStem.value = '';
   elements.isolate.value = '';
   elements.preserveOriginalId.checked = false;
@@ -1186,7 +1186,7 @@ HIT_SETTING_DEFINITIONS.forEach(({ element }) => {
   element?.addEventListener('input', markSampleInputDirty);
 });
 
-elements.target.value = 'auto';
+elements.target.value = 'IAV';
 setStatus('Idle');
 renderResults();
 renderSampleTabs();

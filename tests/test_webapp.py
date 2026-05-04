@@ -75,9 +75,10 @@ def test_webapp_assets_are_packaged_for_static_serving():
     missing = [str(path.relative_to(REPO_ROOT)) for path in required if not path.exists()]
     assert not missing
     index_html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
-    assert index_html.index('<option value="auto">Auto</option>') < index_html.index(
-        '<option value="IAV">IAV</option>'
+    assert index_html.index('<option value="IAV">IAV</option>') < index_html.index(
+        '<option value="auto">AUTO</option>'
     )
+    assert index_html.index('data-sample-key="IDV"') < index_html.index('data-sample-key="auto"')
     assert 'placeholder="defaults to output stem"' in index_html
     assert 'id="run-summary"' in index_html
     assert "Download Results" in index_html
@@ -93,6 +94,7 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert 'class="help-tip"' in index_html
     assert "Output stem is updated from the file name" in index_html
     assert "Load sample data" in index_html
+    assert 'data-sample-key="auto" title="Load mixed IAV, IBV, ICV, and IDV sample data.">AUTO</button>' in index_html
     assert 'data-sample-key="IAV"' in index_html
     assert 'data-sample-key="IDV"' in index_html
     assert "Minimum normalized hit score" in index_html
@@ -118,6 +120,8 @@ def test_webapp_assets_are_packaged_for_static_serving():
     assert "copySequence" in app_js
     assert "SAMPLE_PROFILES" in app_js
     assert "loadSampleProfile('auto')" not in app_js
+    assert "elements.target.value = 'IAV'" in app_js
+    assert "elements.target.value = 'auto'" not in app_js
     assert "elements.sampleTabs" in app_js
     assert "renderSampleTabs" in app_js
     assert "A/Puerto Rico/8/1934" in app_js
