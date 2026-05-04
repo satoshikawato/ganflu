@@ -72,6 +72,7 @@ free local port. Use `--open-browser` to ask ganflu to open the URL with the
 system browser.
 
 ```bash
+ganflu gui # or, 
 ganflu gui --port 8888 --open-browser
 ```
 
