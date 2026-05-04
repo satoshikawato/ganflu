@@ -13,7 +13,8 @@ const state = {
   resultSummary: null,
   running: false,
   downloadSelection: DOWNLOAD_ALL_VALUE,
-  selectedTargetTab: ''
+  selectedTargetTab: '',
+  statusMessage: 'Idle'
 };
 
 const AUTO_PREFIXES = {
@@ -45,6 +46,9 @@ const elements = {
   runSummary: $('#run-summary'),
   downloadSelect: $('#download-select'),
   downloadButton: $('#download-button'),
+  workOverlay: $('#work-overlay'),
+  workOverlayTitle: $('#work-overlay-title'),
+  workOverlayMessage: $('#work-overlay-message'),
   advancedRunDetails: $('#advanced-run-details'),
   advancedRunBody: $('#advanced-run-body'),
   clearButton: $('#clear-button'),
@@ -72,15 +76,48 @@ const getStatusTone = (message) => {
 
 const setStatus = (message) => {
   const value = message || 'Idle';
+  state.statusMessage = value;
   elements.status.textContent = value;
   elements.status.dataset.status = getStatusTone(value);
+  updateWorkOverlay();
 };
+
+function getWorkOverlayTitle(message) {
+  const normalized = String(message || '').toLowerCase();
+  if (
+    normalized.includes('loading') ||
+    normalized.includes('installing') ||
+    normalized.includes('runtime') ||
+    normalized.includes('ready')
+  ) {
+    return 'Initializing ganflu...';
+  }
+  return 'Running annotation...';
+}
+
+function updateWorkOverlay() {
+  if (!elements.workOverlay) return;
+  const visible = Boolean(state.running);
+  elements.workOverlay.hidden = !visible;
+  elements.workOverlay.setAttribute('aria-busy', visible ? 'true' : 'false');
+  if (!visible) return;
+  const message = state.statusMessage && state.statusMessage !== 'Idle'
+    ? state.statusMessage
+    : 'Preparing annotation';
+  if (elements.workOverlayTitle) {
+    elements.workOverlayTitle.textContent = getWorkOverlayTitle(message);
+  }
+  if (elements.workOverlayMessage) {
+    elements.workOverlayMessage.textContent = message;
+  }
+}
 
 const setRunning = (running) => {
   state.running = running;
   elements.runButton.disabled = running;
   elements.runButton.textContent = running ? 'Running...' : 'Run annotation';
   elements.form.classList.toggle('is-running', running);
+  updateWorkOverlay();
 };
 
 const makeSafeStem = (value, fallback = 'ganflu') => {
@@ -899,6 +936,7 @@ elements.form.addEventListener('submit', async (event) => {
   if (state.running) return;
 
   setRunning(true);
+  setStatus('Preparing annotation');
   elements.logText.textContent = '';
   state.outputs = {};
   state.resultSummary = null;

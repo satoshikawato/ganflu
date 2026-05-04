@@ -2,6 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://static.cloudflareinsights.com;
+    style-src 'self' 'unsafe-inline';
+    font-src 'self' data:;
+    img-src 'self' data: blob:;
+    connect-src 'self' https://cloudflareinsights.com;
+    worker-src 'self' blob:;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    ">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ganflu</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml">
@@ -133,29 +146,31 @@
         }
         h1 {
             display: flex;
-            align-items: baseline;
+            align-items: center;
             gap: 8px;
             min-width: 0;
             max-width: 100%;
             margin: 0;
             font-size: 20px;
             font-weight: 700;
-            line-height: 1;
+            line-height: 1.25;
             letter-spacing: 0;
-            overflow: hidden;
             white-space: nowrap;
         }
         .app-name {
             flex: 0 0 auto;
+            line-height: 1.35;
+            padding-bottom: 2px;
         }
         .subtitle {
             display: inline-block;
+            flex: 1 1 auto;
             min-width: 0;
             margin: 0;
             color: var(--muted);
             font-size: 14px;
             font-weight: 400;
-            line-height: 1;
+            line-height: 1.25;
             overflow: hidden;
             text-overflow: ellipsis;
             vertical-align: baseline;
@@ -958,7 +973,131 @@
         .is-running textarea {
             cursor: progress;
         }
+        .about-panel {
+            margin: 17px 0 0;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #ffffff;
+            overflow: hidden;
+        }
+        .about-panel > summary {
+            min-height: 42px;
+            padding: 12px;
+            color: #344054;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 800;
+            user-select: none;
+        }
+        .about-body {
+            display: grid;
+            gap: 12px;
+            padding: 0 12px 12px;
+            color: #344054;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .about-body p {
+            margin: 0;
+        }
+        .about-body a {
+            color: var(--accent-strong);
+            font-weight: 700;
+        }
+        .info-callout {
+            padding: 10px 12px;
+            border: 1px solid #b6d7dd;
+            border-radius: 8px;
+            background: #eef9fa;
+            color: #174a51;
+        }
+        .about-block {
+            display: grid;
+            gap: 6px;
+        }
+        .about-block h3 {
+            margin: 0;
+            color: var(--text);
+            font-size: 13px;
+            line-height: 1.25;
+        }
+        .citation-box {
+            padding: 9px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--panel-subtle);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+            font-size: 11px;
+            overflow-wrap: anywhere;
+            user-select: all;
+        }
+        .link-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .link-grid a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            padding: 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--panel-subtle);
+            text-align: center;
+            text-decoration: none;
+        }
+        .work-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.92);
+            color: var(--text);
+            text-align: center;
+            backdrop-filter: blur(8px);
+        }
+        .work-overlay[hidden] {
+            display: none;
+        }
+        .work-spinner {
+            width: 54px;
+            height: 54px;
+            border: 4px solid #cfe4e7;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        .work-overlay h2 {
+            margin: 0;
+            font-size: 20px;
+            line-height: 1.2;
+        }
+        .work-overlay p {
+            max-width: 520px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
         footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 8px 14px;
             padding: 0 20px 20px;
             max-width: 1440px;
             margin: 0 auto;
@@ -1033,6 +1172,9 @@
             .advanced-grid {
                 grid-template-columns: 1fr;
             }
+            .link-grid {
+                grid-template-columns: 1fr;
+            }
         }
         @media (max-width: 520px) {
             .brand {
@@ -1080,6 +1222,11 @@
     <!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->
 </head>
 <body>
+    <div class="work-overlay" id="work-overlay" hidden aria-live="polite" aria-busy="true">
+        <div class="work-spinner" aria-hidden="true"></div>
+        <h2 id="work-overlay-title">Initializing ganflu...</h2>
+        <p id="work-overlay-message">Loading the browser annotation runtime.</p>
+    </div>
     <header>
         <div class="brand">
             <div class="brand-mark" aria-hidden="true">
@@ -1170,6 +1317,30 @@
                 <button class="primary" id="run-button" type="submit" title="Run miniprot and ganflu annotation with the current settings.">Run annotation</button>
                 <button id="clear-button" type="button" title="Clear inputs, outputs, logs, and restore default advanced filters.">Clear</button>
             </div>
+            <details class="about-panel">
+                <summary>About &amp; Citation</summary>
+                <div class="about-body">
+                    <div class="info-callout">
+                        <strong>Privacy &amp; Security</strong>
+                        <p>ganflu runs entirely in your browser using WebAssembly, Miniprot, and Pyodide. Uploaded genomic data is processed locally and is not sent to a backend server.</p>
+                    </div>
+                    <div class="about-block">
+                        <h3>How to cite</h3>
+                        <p>If you use ganflu in research, cite the software repository or the release used for your analysis until a dedicated publication is available.</p>
+                        <div class="citation-box">Kawato, S. ganflu: Genome ANnotator for inFLUenza viruses. https://github.com/satoshikawato/ganflu</div>
+                    </div>
+                    <div class="about-block">
+                        <h3>Source, license, and notices</h3>
+                        <p>ganflu is released under the MIT License. Browser assets and bundled dependencies are documented in the local notices page.</p>
+                        <div class="link-grid">
+                            <a href="./open-source-notices.html">Open Source Notices</a>
+                            <a href="https://github.com/satoshikawato/ganflu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT on GitHub</a>
+                            <a href="https://github.com/satoshikawato/ganflu" target="_blank" rel="noopener noreferrer">GitHub</a>
+                            <a href="https://github.com/satoshikawato/ganflu/issues" target="_blank" rel="noopener noreferrer">Issues</a>
+                        </div>
+                    </div>
+                </div>
+            </details>
         </form>
         <section class="panel results">
             <div class="results-head">
@@ -1192,8 +1363,13 @@
         </section>
     </main>
     <footer>
-        <a href="./open-source-notices.html">Open Source Notices</a>
-        <!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->
+        <span><strong>Disclaimer:</strong> This tool is provided "as is" without warranty of any kind.</span>
+        <span>
+            License: <a href="./open-source-notices.html">Open Source Notices</a> |
+            <a href="https://github.com/satoshikawato/ganflu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT on GitHub</a> |
+            Author: <a href="https://researchmap.jp/satoshi_kawato?lang=en" target="_blank" rel="noopener noreferrer">Satoshi Kawato</a>
+        </span>
+        <span class="hosted-notice"><!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE --></span>
     </footer>
     <script type="module" src="./js/app.js"></script>
 </body>

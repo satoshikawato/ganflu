@@ -42,7 +42,15 @@ export const createPyodideManager = ({ onStatus = () => {} } = {}) => {
 
       onStatus('Installing ganflu');
       const wheelUrl = await ensureAsset(GANFLU_WHEEL_NAME, GANFLU_WHEEL_NAME);
-      await micropip.install(wheelUrl);
+      pyodide.globals.set('GANFLU_BROWSER_WHEEL_URL', wheelUrl);
+      try {
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install(GANFLU_BROWSER_WHEEL_URL, deps=False)
+`);
+      } finally {
+        pyodide.globals.delete('GANFLU_BROWSER_WHEEL_URL');
+      }
       await pyodide.runPythonAsync(PYTHON_HELPERS);
       onStatus('Python ready');
       return pyodide;
