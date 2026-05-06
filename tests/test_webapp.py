@@ -191,11 +191,12 @@ def test_cloudflare_bundle_copies_required_static_assets(tmp_path):
     assert sorted(path.name for path in output_root.glob("ganflu-*.whl")) == [match.group(1)]
 
 
-def test_cloudflare_bundle_includes_analytics_only_when_requested(tmp_path):
+def test_cloudflare_bundle_includes_default_analytics_and_allows_opt_out(tmp_path):
     module = load_cloudflare_pages_module()
 
     no_analytics_root = module.build_cloudflare_pages_bundle(
-        output_root=tmp_path / "cloudflare-pages-no-analytics"
+        output_root=tmp_path / "cloudflare-pages-no-analytics",
+        analytics_token=None,
     )
     no_analytics_html = (no_analytics_root / "index.html").read_text(encoding="utf-8")
     assert "static.cloudflareinsights.com" not in no_analytics_html
@@ -203,13 +204,26 @@ def test_cloudflare_bundle_includes_analytics_only_when_requested(tmp_path):
     assert "<!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->" not in no_analytics_html
     assert "<!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->" not in no_analytics_html
 
+    default_analytics_root = module.build_cloudflare_pages_bundle(
+        output_root=tmp_path / "cloudflare-pages-default-analytics"
+    )
+    default_analytics_html = (default_analytics_root / "index.html").read_text(encoding="utf-8")
+    assert "https://static.cloudflareinsights.com/beacon.min.js" in default_analytics_html
+    assert (
+        'data-cf-beacon=\'{"token": "364ff19a019643da81112c9da41b3440"}\''
+        in default_analytics_html
+    )
+    assert "Uploaded FASTA files are processed locally in your browser" in default_analytics_html
+    assert "<!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->" not in default_analytics_html
+    assert "<!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->" not in default_analytics_html
+
     analytics_root = module.build_cloudflare_pages_bundle(
         output_root=tmp_path / "cloudflare-pages-analytics",
         analytics_token="test-token",
     )
     analytics_html = (analytics_root / "index.html").read_text(encoding="utf-8")
     assert "https://static.cloudflareinsights.com/beacon.min.js" in analytics_html
-    assert "test-token" in analytics_html
+    assert 'data-cf-beacon=\'{"token": "test-token"}\'' in analytics_html
     assert "Uploaded FASTA files are processed locally in your browser" in analytics_html
     assert "<!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->" not in analytics_html
     assert "<!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->" not in analytics_html

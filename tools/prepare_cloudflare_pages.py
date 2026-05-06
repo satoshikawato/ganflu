@@ -13,6 +13,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = REPO_ROOT / "ganflu" / "web"
 DEFAULT_OUTPUT_ROOT = REPO_ROOT / "dist" / "cloudflare-pages"
+DEFAULT_ANALYTICS_TOKEN = "364ff19a019643da81112c9da41b3440"
 ANALYTICS_TOKEN_ENV = "CLOUDFLARE_WEB_ANALYTICS_TOKEN"
 SCRIPT_MARKER = "<!-- CLOUDFLARE_WEB_ANALYTICS_SCRIPT -->"
 NOTICE_MARKER = "<!-- CLOUDFLARE_WEB_ANALYTICS_NOTICE -->"
@@ -49,10 +50,12 @@ def _normalize_analytics_token(token: str | None) -> str | None:
 
 
 def _render_analytics_script(token: str) -> str:
-    beacon_config = escape(json.dumps({"token": token}, separators=(",", ":")), quote=True)
+    beacon_config = json.dumps({"token": token})
+    if "'" in beacon_config:
+        beacon_config = escape(beacon_config, quote=True)
     return (
-        "    <!-- Cloudflare Web Analytics -->\n"
-        "    <script defer src=\"https://static.cloudflareinsights.com/beacon.min.js\" "
+        "    <!-- Cloudflare Web Analytics --><script defer "
+        "src='https://static.cloudflareinsights.com/beacon.min.js' "
         f"data-cf-beacon='{beacon_config}'></script>\n"
         "    <!-- End Cloudflare Web Analytics -->"
     )
@@ -71,7 +74,7 @@ def _render_analytics_notice() -> str:
 def build_cloudflare_pages_bundle(
     *,
     output_root: Path = DEFAULT_OUTPUT_ROOT,
-    analytics_token: str | None = None,
+    analytics_token: str | None = DEFAULT_ANALYTICS_TOKEN,
 ) -> Path:
     output_root = Path(output_root)
     if output_root.exists():
@@ -110,7 +113,7 @@ def prepare_cloudflare_pages(
 
     token = None
     if analytics_enabled:
-        token = analytics_token if analytics_token is not None else os.environ.get(ANALYTICS_TOKEN_ENV)
+        token = analytics_token or os.environ.get(ANALYTICS_TOKEN_ENV) or DEFAULT_ANALYTICS_TOKEN
     return build_cloudflare_pages_bundle(output_root=output_root, analytics_token=token)
 
 
@@ -132,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
         "--analytics-token",
         help=(
             "Cloudflare Web Analytics token. Defaults to "
-            f"{ANALYTICS_TOKEN_ENV} when set."
+            f"{ANALYTICS_TOKEN_ENV} or the repository default."
         ),
     )
     analytics_group.add_argument(
